@@ -1,1 +1,5 @@
-export type User = Record<string, never>;
+export interface User {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+}
