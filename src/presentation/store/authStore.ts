@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getAuthErrorMessage } from '../../core/utils/authErrors';
 import { FirebaseAuthRepository } from '../../data/repositories/FirebaseAuthRepository';
 import type { User } from '../../domain/entities/User';
 import { loginUser } from '../../domain/usecases/auth/loginUser';
@@ -18,9 +19,6 @@ interface AuthState {
 
 const authRepository = new FirebaseAuthRepository();
 
-const getErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : 'Something went wrong. Please try again.';
-
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
@@ -38,7 +36,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await loginUser(authRepository, email, password);
       set({ user, isLoading: false });
     } catch (error) {
-      set({ isLoading: false, error: getErrorMessage(error) });
+      set({ isLoading: false, error: getAuthErrorMessage(error) });
       throw error;
     }
   },
@@ -50,7 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await registerUser(authRepository, email, password);
       set({ user, isLoading: false });
     } catch (error) {
-      set({ isLoading: false, error: getErrorMessage(error) });
+      set({ isLoading: false, error: getAuthErrorMessage(error) });
       throw error;
     }
   },
@@ -62,7 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await logoutUser(authRepository);
       set({ user: null, isLoading: false });
     } catch (error) {
-      set({ isLoading: false, error: getErrorMessage(error) });
+      set({ isLoading: false, error: getAuthErrorMessage(error) });
       throw error;
     }
   },
