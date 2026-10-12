@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { getAuthErrorMessage } from '../../core/utils/authErrors';
-import { FirebaseAuthRepository } from '../../data/repositories/FirebaseAuthRepository';
 import type { User } from '../../domain/entities/User';
+import type { AuthRepository } from '../../domain/repositories/AuthRepository';
 import { loginUser } from '../../domain/usecases/auth/loginUser';
 import { logoutUser } from '../../domain/usecases/auth/logoutUser';
 import { registerUser } from '../../domain/usecases/auth/registerUser';
@@ -17,7 +17,19 @@ interface AuthState {
   clearError: () => void;
 }
 
-const authRepository = new FirebaseAuthRepository();
+let authRepository: AuthRepository | null = null;
+
+export const configureAuthStore = (repository: AuthRepository): void => {
+  authRepository = repository;
+};
+
+const getRepository = (): AuthRepository => {
+  if (!authRepository) {
+    throw new Error('Auth store has not been configured.');
+  }
+
+  return authRepository;
+};
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -25,7 +37,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
 
   initialize: () =>
-    authRepository.subscribeToAuthState((user) =>
+    getRepository().subscribeToAuthState((user) =>
       set({ user, isLoading: false, error: null }),
     ),
 
@@ -33,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const user = await loginUser(authRepository, email, password);
+      const user = await loginUser(getRepository(), email, password);
       set({ user, isLoading: false });
     } catch (error) {
       set({ isLoading: false, error: getAuthErrorMessage(error) });
@@ -45,7 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const user = await registerUser(authRepository, email, password);
+      const user = await registerUser(getRepository(), email, password);
       set({ user, isLoading: false });
     } catch (error) {
       set({ isLoading: false, error: getAuthErrorMessage(error) });
@@ -57,7 +69,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
-      await logoutUser(authRepository);
+      await logoutUser(getRepository());
       set({ user: null, isLoading: false });
     } catch (error) {
       set({ isLoading: false, error: getAuthErrorMessage(error) });

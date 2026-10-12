@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import type { Priority } from '../../core/constants/priorities';
-import { FirestoreTaskRepository } from '../../data/repositories/FirestoreTaskRepository';
 import type {
   CreateTaskInput,
   Task,
   UpdateTaskInput,
 } from '../../domain/entities/Task';
+import type { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { createTask as createTaskUseCase } from '../../domain/usecases/tasks/createTask';
 import { deleteTask as deleteTaskUseCase } from '../../domain/usecases/tasks/deleteTask';
 import { getTasks as getTasksUseCase } from '../../domain/usecases/tasks/getTasks';
@@ -34,7 +34,19 @@ interface TaskState {
   clearError: () => void;
 }
 
-const taskRepository = new FirestoreTaskRepository();
+let taskRepository: TaskRepository | null = null;
+
+export const configureTaskStore = (repository: TaskRepository): void => {
+  taskRepository = repository;
+};
+
+const getRepository = (): TaskRepository => {
+  if (!taskRepository) {
+    throw new Error('Task store has not been configured.');
+  }
+
+  return taskRepository;
+};
 
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -67,7 +79,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const tasks = await getTasksUseCase(taskRepository, userId);
+      const tasks = await getTasksUseCase(getRepository(), userId);
       set({ tasks, isLoading: false });
     } catch (error) {
       set({ isLoading: false, error: getErrorMessage(error) });
@@ -78,7 +90,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ isSaving: true, error: null });
 
     try {
-      const createdTask = await createTaskUseCase(taskRepository, userId, task);
+      const createdTask = await createTaskUseCase(getRepository(), userId, task);
       set((state) => ({ tasks: [...state.tasks, createdTask], isSaving: false }));
       return createdTask;
     } catch (error) {
@@ -91,7 +103,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ isSaving: true, error: null });
 
     try {
-      await updateTaskUseCase(taskRepository, userId, taskId, changes);
+      await updateTaskUseCase(getRepository(), userId, taskId, changes);
       set((state) => ({
         tasks: state.tasks.map((task) =>
           task.id === taskId ? { ...task, ...changes } : task,
@@ -109,7 +121,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ tasks: previousTasks.filter((task) => task.id !== taskId), error: null });
 
     try {
-      await deleteTaskUseCase(taskRepository, userId, taskId);
+      await deleteTaskUseCase(getRepository(), userId, taskId);
     } catch (error) {
       set({ tasks: previousTasks, error: getErrorMessage(error) });
       throw error;
@@ -131,7 +143,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     });
 
     try {
-      await toggleTaskStatusUseCase(taskRepository, userId, taskId, isCompleted);
+      await toggleTaskStatusUseCase(getRepository(), userId, taskId, isCompleted);
     } catch (error) {
       set({ tasks: previousTasks, error: getErrorMessage(error) });
       throw error;
