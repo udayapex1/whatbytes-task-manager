@@ -7,7 +7,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Button,
@@ -77,10 +77,15 @@ export default function TaskFormScreen({ navigation, route }: Props) {
     setPriority(existingTask.priority);
   }, [existingTask]);
 
-  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    appLogger.action('taskForm.dateChanged', { selected: event.type === 'set' });
-    setShowDatePicker(Platform.OS === 'ios');
-    if (event.type === 'set' && selectedDate) setDueDate(selectedDate);
+  const handleDateChange = (_event: DateTimePickerChangeEvent, selectedDate: Date) => {
+    appLogger.action('taskForm.dateChanged', { selected: true });
+    setDueDate(selectedDate);
+    if (Platform.OS !== 'ios') setShowDatePicker(false);
+  };
+
+  const handleDateDismiss = () => {
+    appLogger.action('taskForm.dateDismissed');
+    if (Platform.OS !== 'ios') setShowDatePicker(false);
   };
 
   const save = async () => {
@@ -219,7 +224,8 @@ export default function TaskFormScreen({ navigation, route }: Props) {
               value={dueDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onChange={handleDateChange}
+              onValueChange={handleDateChange}
+              onDismiss={handleDateDismiss}
               minimumDate={new Date(2000, 0, 1)}
             />
           ) : null}

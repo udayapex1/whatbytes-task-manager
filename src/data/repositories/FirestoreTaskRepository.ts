@@ -19,9 +19,6 @@ import {
   taskUpdateToFirestoreData,
 } from '../mappers/taskMapper';
 import { appLogger } from '../../core/utils/appLogger';
-import { withTimeout } from '../../core/utils/withTimeout';
-
-const FIRESTORE_TIMEOUT_MS = 15000;
 
 const tasksCollection = (userId: string) =>
   collection(db, 'users', userId, 'tasks');
@@ -31,11 +28,7 @@ export class FirestoreTaskRepository implements TaskRepository {
     appLogger.action('firestore.tasks.read.request');
 
     try {
-      const snapshot = await withTimeout(
-        getDocs(tasksCollection(userId)),
-        FIRESTORE_TIMEOUT_MS,
-        'Loading tasks',
-      );
+      const snapshot = await getDocs(tasksCollection(userId));
       const tasks = snapshot.docs
         .map(taskFromSnapshot)
         .filter((task): task is Task => task !== null);
@@ -53,13 +46,9 @@ export class FirestoreTaskRepository implements TaskRepository {
     const createdAt = new Date();
 
     try {
-      const reference = await withTimeout(
-        addDoc(
-          tasksCollection(userId),
-          taskToFirestoreData({ ...task, createdAt }),
-        ),
-        FIRESTORE_TIMEOUT_MS,
-        'Creating task',
+      const reference = await addDoc(
+        tasksCollection(userId),
+        taskToFirestoreData({ ...task, createdAt }),
       );
 
       appLogger.success('firestore.task.create');
@@ -78,22 +67,14 @@ export class FirestoreTaskRepository implements TaskRepository {
     const data = taskUpdateToFirestoreData(changes);
     if (Object.keys(data).length === 0) return;
 
-    await withTimeout(
-      updateDoc(doc(db, 'users', userId, 'tasks', taskId), data),
-      FIRESTORE_TIMEOUT_MS,
-      'Updating task',
-    );
+    await updateDoc(doc(db, 'users', userId, 'tasks', taskId), data);
   }
 
   async deleteTask(userId: string, taskId: string): Promise<void> {
     appLogger.action('firestore.task.delete.request');
 
     try {
-      await withTimeout(
-        deleteDoc(doc(db, 'users', userId, 'tasks', taskId)),
-        FIRESTORE_TIMEOUT_MS,
-        'Deleting task',
-      );
+      await deleteDoc(doc(db, 'users', userId, 'tasks', taskId));
       appLogger.success('firestore.task.delete');
     } catch (error) {
       appLogger.failure('firestore.task.delete', error);
@@ -106,10 +87,6 @@ export class FirestoreTaskRepository implements TaskRepository {
     taskId: string,
     isCompleted: boolean,
   ): Promise<void> {
-    await withTimeout(
-      updateDoc(doc(db, 'users', userId, 'tasks', taskId), { isCompleted }),
-      FIRESTORE_TIMEOUT_MS,
-      'Updating task status',
-    );
+    await updateDoc(doc(db, 'users', userId, 'tasks', taskId), { isCompleted });
   }
 }

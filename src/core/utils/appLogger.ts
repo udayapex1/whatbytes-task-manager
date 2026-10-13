@@ -1,6 +1,6 @@
 type LogDetails = Record<string, boolean | number | string | undefined>;
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = __DEV__;
 
 const getErrorCode = (error: unknown): string => {
   if (typeof error === 'object' && error !== null && 'code' in error) {
