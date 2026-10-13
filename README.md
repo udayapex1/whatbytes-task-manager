@@ -189,17 +189,11 @@ legacy rule and migration code can be removed.
 
 ## App screenshots
 
-![App screenshot 1](<assets/app _screenshots/ss1.jpeg>)
-
-![App screenshot 2](<assets/app _screenshots/ss2.jpeg>)
-
-![App screenshot 3](<assets/app _screenshots/ss3.jpeg>)
-
-![App screenshot 4](<assets/app _screenshots/ss4.jpeg>)
-
-![App screenshot 5](<assets/app _screenshots/ss5.jpeg>)
-
-![App screenshot 6](<assets/app _screenshots/ss6.jpeg>)
+|  |  |
+|:---:|:---:|
+| <a href="assets/app%20_screenshots/ss1.jpeg"><img src="assets/app%20_screenshots/ss1.jpeg" width="240" alt="App screenshot 1"></a> | <a href="assets/app%20_screenshots/ss2.jpeg"><img src="assets/app%20_screenshots/ss2.jpeg" width="240" alt="App screenshot 2"></a> |
+| <a href="assets/app%20_screenshots/ss3.jpeg"><img src="assets/app%20_screenshots/ss3.jpeg" width="240" alt="App screenshot 3"></a> | <a href="assets/app%20_screenshots/ss4.jpeg"><img src="assets/app%20_screenshots/ss4.jpeg" width="240" alt="App screenshot 4"></a> |
+| <a href="assets/app%20_screenshots/ss5.jpeg"><img src="assets/app%20_screenshots/ss5.jpeg" width="240" alt="App screenshot 5"></a> | <a href="assets/app%20_screenshots/ss6.jpeg"><img src="assets/app%20_screenshots/ss6.jpeg" width="240" alt="App screenshot 6"></a> |
 
 ## Submission notes
 
