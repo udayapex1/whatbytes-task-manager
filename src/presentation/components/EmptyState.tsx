@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { appLogger } from '../../core/utils/appLogger';
+import { palette } from '../../core/theme/theme';
 
 interface Props {
   filtered: boolean;
@@ -18,7 +19,9 @@ export default function EmptyState({ filtered, onClearFilters, onAddTask }: Prop
         {filtered ? 'No tasks found' : 'No tasks yet'}
       </Text>
       <Text style={styles.message}>
-        {filtered ? 'Try adjusting your filters to see more tasks.' : 'Tap + to add your first task.'}
+        {filtered
+          ? 'Try adjusting your filters to see more tasks.'
+          : 'Tap New task to add your first task.'}
       </Text>
       {filtered ? (
         <Button
@@ -48,9 +51,9 @@ export default function EmptyState({ filtered, onClearFilters, onAddTask }: Prop
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center', padding: 32, minHeight: 280 },
-  iconCircle: { alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: '#E8E6FF' },
-  icon: { color: '#6C63FF', fontSize: 32, fontWeight: '700' },
-  title: { marginTop: 16, color: '#2D3250', fontWeight: '800' },
-  message: { marginTop: 8, color: '#73788D', textAlign: 'center' },
-  button: { marginTop: 18, borderRadius: 12 },
+  iconCircle: { alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: palette.slate },
+  icon: { color: palette.ink, fontSize: 32, fontWeight: '700' },
+  title: { marginTop: 16, color: palette.ink, fontWeight: '800' },
+  message: { marginTop: 8, color: palette.ink, opacity: 0.72, textAlign: 'center' },
+  button: { marginTop: 18, borderRadius: 12, backgroundColor: palette.orange },
 });

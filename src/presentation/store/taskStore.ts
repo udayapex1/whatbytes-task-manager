@@ -36,6 +36,7 @@ interface TaskState {
 }
 
 let taskRepository: TaskRepository | null = null;
+let latestFetchRequest = 0;
 
 export const configureTaskStore = (repository: TaskRepository): void => {
   taskRepository = repository;
@@ -51,6 +52,12 @@ const getRepository = (): TaskRepository => {
 
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+
+const isTimeoutError = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  error.code === 'app/timeout';
 
 export const selectVisibleTasks = (
   tasks: Task[],
@@ -78,14 +85,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   fetchTasks: async (userId) => {
     appLogger.action('tasks.fetch');
+    const requestId = ++latestFetchRequest;
     set({ isLoading: true, error: null });
 
     try {
       const tasks = await getTasksUseCase(getRepository(), userId);
+
+      // Focus refreshes and pull-to-refresh can overlap. Only the latest
+      // request is allowed to replace the store, preventing stale responses
+      // from bringing deleted or older tasks back into the list.
+      if (requestId !== latestFetchRequest) return;
+
       set({ tasks, isLoading: false });
       appLogger.success('tasks.fetch', { count: tasks.length });
     } catch (error) {
-      set({ isLoading: false, error: getErrorMessage(error) });
+      if (requestId === latestFetchRequest) {
+        set({ isLoading: false, error: getErrorMessage(error) });
+      }
       appLogger.failure('tasks.fetch', error);
     }
   },
@@ -128,15 +144,31 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   deleteTask: async (userId, taskId) => {
     appLogger.action('tasks.delete');
-    const previousTasks = get().tasks;
-    set({ tasks: previousTasks.filter((task) => task.id !== taskId), error: null });
+    const task = get().tasks.find((item) => item.id === taskId);
+    if (!task) return;
+
+    set((state) => ({
+      tasks: state.tasks.filter((item) => item.id !== taskId),
+      error: null,
+    }));
 
     try {
       await deleteTaskUseCase(getRepository(), userId, taskId);
       appLogger.success('tasks.delete');
     } catch (error) {
-      set({ tasks: previousTasks, error: getErrorMessage(error) });
       appLogger.failure('tasks.delete', error);
+
+      // The Firestore request may have reached the backend even when the
+      // client-side timeout fires. Keep the optimistic removal in that case;
+      // restoring the task makes it appear undeleted until the next refresh.
+      if (isTimeoutError(error)) return;
+
+      set((state) => ({
+        tasks: state.tasks.some((item) => item.id === taskId)
+          ? state.tasks
+          : [...state.tasks, task],
+        error: getErrorMessage(error),
+      }));
       throw error;
     }
   },

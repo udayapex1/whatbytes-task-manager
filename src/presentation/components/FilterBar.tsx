@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Chip, Text } from 'react-native-paper';
 import { priorityLabels, priorities, type Priority } from '../../core/constants/priorities';
 import { appLogger } from '../../core/utils/appLogger';
+import { palette } from '../../core/theme/theme';
 import type { PriorityFilter, StatusFilter } from '../store/taskStore';
 
 interface Props {
@@ -79,9 +80,9 @@ export default function FilterBar({
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
-  label: { marginBottom: 6, color: '#73788D', fontWeight: '800' },
+  label: { marginBottom: 6, color: palette.ink, fontWeight: '800' },
   statusLabel: { marginTop: 10 },
   row: { gap: 8, paddingRight: 16 },
-  chip: { borderRadius: 10, backgroundColor: '#EEF0F6' },
-  selectedChip: { backgroundColor: '#E8E6FF' },
+  chip: { borderRadius: 12, backgroundColor: palette.mist },
+  selectedChip: { backgroundColor: palette.orange },
 });

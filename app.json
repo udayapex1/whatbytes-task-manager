@@ -12,7 +12,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#16244F",
+        "backgroundColor": "#25343F",
         "foregroundImage": "./assets/files/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false

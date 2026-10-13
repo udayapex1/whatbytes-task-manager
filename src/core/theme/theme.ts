@@ -1,21 +1,30 @@
 import { MD3LightTheme } from 'react-native-paper';
 
+export const palette = {
+  mist: '#EAEFEF',
+  slate: '#BFC9D1',
+  ink: '#25343F',
+  orange: '#FF9B51',
+  white: '#FFFFFF',
+} as const;
+
 export const theme = {
   ...MD3LightTheme,
-  roundness: 3,
+  roundness: 14,
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#6C63FF',
-    onPrimary: '#FFFFFF',
-    primaryContainer: '#E8E6FF',
-    onPrimaryContainer: '#2D3250',
-    secondary: '#5F6380',
-    background: '#F6F7FB',
-    surface: '#FFFFFF',
-    surfaceVariant: '#EEF0F6',
-    onSurface: '#2D3250',
-    onSurfaceVariant: '#686D82',
-    error: '#BA1A1A',
+    primary: palette.orange,
+    onPrimary: palette.ink,
+    primaryContainer: palette.slate,
+    onPrimaryContainer: palette.ink,
+    secondary: palette.slate,
+    onSecondary: palette.ink,
+    background: palette.mist,
+    surface: palette.white,
+    surfaceVariant: palette.mist,
+    onSurface: palette.ink,
+    onSurfaceVariant: palette.ink,
+    error: palette.orange,
   },
 };
 

@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Appbar, Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../navigation/AuthStack';
-import { spacing } from '../../core/theme/theme';
+import { palette, spacing } from '../../core/theme/theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PrivacyPolicy'>;
 
@@ -99,14 +99,14 @@ function PolicySection({ title, children }: { title: string; children: React.Rea
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F6F7FB' },
-  header: { backgroundColor: '#FFFFFF' },
-  headerTitle: { color: '#2D3250', fontWeight: '800' },
+  safeArea: { flex: 1, backgroundColor: palette.mist },
+  header: { backgroundColor: palette.white },
+  headerTitle: { color: palette.ink, fontWeight: '800' },
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
-  title: { color: '#2D3250', fontWeight: '800' },
-  updated: { marginTop: spacing.xs, color: '#73788D', fontSize: 12 },
-  intro: { marginTop: spacing.lg, color: '#454A60', fontSize: 15, lineHeight: 23 },
+  title: { color: palette.ink, fontWeight: '800' },
+  updated: { marginTop: spacing.xs, color: palette.ink, opacity: 0.68, fontSize: 12 },
+  intro: { marginTop: spacing.lg, color: palette.ink, fontSize: 15, lineHeight: 23 },
   section: { marginTop: spacing.lg },
-  sectionTitle: { color: '#2D3250', fontWeight: '800' },
-  body: { marginTop: spacing.sm, color: '#5E6378', fontSize: 14, lineHeight: 22 },
+  sectionTitle: { color: palette.ink, fontWeight: '800' },
+  body: { marginTop: spacing.sm, color: palette.ink, opacity: 0.78, fontSize: 14, lineHeight: 22 },
 });

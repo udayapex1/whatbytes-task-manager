@@ -25,7 +25,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuthStore } from "../store/authStore";
 import type { AuthStackParamList } from "../navigation/AuthStack";
 import { getAuthErrorMessage } from "../../core/utils/authErrors";
-import { spacing } from "../../core/theme/theme";
+import { palette, spacing } from "../../core/theme/theme";
 import { appLogger } from "../../core/utils/appLogger";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
@@ -120,7 +120,7 @@ export default function LoginScreen({ navigation }: Props) {
                     key={i}
                     style={{
                       flex: 1,
-                      backgroundColor: `rgba(5,5,5,${scrimOpacity(i)})`,
+                      backgroundColor: `rgba(37,52,63,${scrimOpacity(i)})`,
                     }}
                   />
                 ))}
@@ -173,7 +173,7 @@ export default function LoginScreen({ navigation }: Props) {
                 style={styles.input}
                 outlineStyle={styles.inputOutline}
                 outlineColor="transparent"
-                activeOutlineColor="#111111"
+                activeOutlineColor={palette.orange}
               />
               <HelperText type="error" visible={Boolean(emailError)}>
                 {emailError}
@@ -212,7 +212,7 @@ export default function LoginScreen({ navigation }: Props) {
                 style={styles.input}
                 outlineStyle={styles.inputOutline}
                 outlineColor="transparent"
-                activeOutlineColor="#111111"
+                activeOutlineColor={palette.orange}
               />
               <HelperText type="error" visible={Boolean(passwordError)}>
                 {passwordError}
@@ -232,13 +232,12 @@ export default function LoginScreen({ navigation }: Props) {
               <Button
                 mode="contained"
                 onPress={() => void submit()}
-                loading={isSubmitting}
                 disabled={isSubmitting}
                 contentStyle={styles.buttonContent}
                 style={styles.button}
                 labelStyle={styles.buttonLabel}
               >
-                Log in
+                {isSubmitting ? 'Signing in…' : 'Log in'}
               </Button>
 
               <View style={styles.switchRow}>
@@ -287,7 +286,7 @@ export default function LoginScreen({ navigation }: Props) {
 const FIELD_RADIUS = 14;
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#050505" },
+  safeArea: { flex: 1, backgroundColor: palette.ink },
   background: { flex: 1 },
   backgroundImage: { resizeMode: "cover" },
   flex: { flex: 1 },
@@ -309,7 +308,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(5,5,5,0.35)",
+    backgroundColor: "rgba(37,52,63,0.35)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255,255,255,0.35)",
   },
@@ -320,7 +319,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.3,
-    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowColor: "rgba(37,52,63,0.45)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
@@ -329,17 +328,17 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: "800",
     lineHeight: 42,
-    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowColor: "rgba(37,52,63,0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 8,
   },
   subtitle: {
     marginTop: spacing.xs,
     maxWidth: 300,
-    color: "#EDEDF2",
+    color: palette.mist,
     fontSize: 15,
     lineHeight: 22,
-    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowColor: "rgba(37,52,63,0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
@@ -349,29 +348,29 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: palette.white,
   },
-  input: { height: 52, backgroundColor: "#F2F2F4" },
+  input: { height: 52, backgroundColor: palette.mist },
   inputOutline: { borderRadius: FIELD_RADIUS, borderWidth: 1.5 },
   forgotRow: { alignSelf: "flex-end", marginTop: -spacing.xs },
-  forgot: { color: "#111111", fontSize: 13, fontWeight: "700" },
+  forgot: { color: palette.orange, fontSize: 13, fontWeight: "700" },
   button: {
     marginTop: spacing.md,
     borderRadius: 16,
-    backgroundColor: "#050505",
+    backgroundColor: palette.orange,
   },
   buttonContent: { height: 54 },
-  buttonLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  buttonLabel: { color: palette.ink, fontSize: 16, fontWeight: "800" },
   switchRow: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: spacing.lg,
   },
-  switchText: { color: "#6B6B76", fontSize: 13 },
-  link: { color: "#111111", fontSize: 13, fontWeight: "800" },
+  switchText: { color: palette.ink, opacity: 0.7, fontSize: 13 },
+  link: { color: palette.orange, fontSize: 13, fontWeight: "800" },
   privacyRow: { alignSelf: "center", marginTop: spacing.md },
   privacyLink: {
-    color: "#6B6B76",
+    color: palette.orange,
     fontSize: 12,
     textDecorationLine: "underline",
   },

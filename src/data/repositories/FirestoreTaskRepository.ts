@@ -86,11 +86,19 @@ export class FirestoreTaskRepository implements TaskRepository {
   }
 
   async deleteTask(userId: string, taskId: string): Promise<void> {
-    await withTimeout(
-      deleteDoc(doc(db, 'users', userId, 'tasks', taskId)),
-      FIRESTORE_TIMEOUT_MS,
-      'Deleting task',
-    );
+    appLogger.action('firestore.task.delete.request');
+
+    try {
+      await withTimeout(
+        deleteDoc(doc(db, 'users', userId, 'tasks', taskId)),
+        FIRESTORE_TIMEOUT_MS,
+        'Deleting task',
+      );
+      appLogger.success('firestore.task.delete');
+    } catch (error) {
+      appLogger.failure('firestore.task.delete', error);
+      throw error;
+    }
   }
 
   async toggleTaskStatus(

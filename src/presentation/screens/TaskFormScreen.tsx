@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Appbar,
   Button,
   HelperText,
-  SegmentedButtons,
+  IconButton,
   Snackbar,
   Text,
   TextInput,
@@ -20,14 +20,29 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { priorityLabels, priorities, type Priority } from '../../core/constants/priorities';
 import { formatDate } from '../../core/utils/dateUtils';
+import { palette } from '../../core/theme/theme';
 import { appLogger } from '../../core/utils/appLogger';
+import BottomChipBar from '../components/BottomChipBar';
 import type { AppStackParamList } from '../navigation/AppStack';
 import { useAuthStore } from '../store/authStore';
 import { useTaskStore } from '../store/taskStore';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'TaskForm'>;
 
+const PRIORITY_DOT: Record<string, string> = {
+  low: palette.slate,
+  medium: palette.orange,
+  high: palette.ink,
+};
+
+const isTimeoutError = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  error.code === 'app/timeout';
+
 export default function TaskFormScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const taskId = route.params?.taskId;
   const user = useAuthStore((state) => state.user);
   const tasks = useTaskStore((state) => state.tasks);
@@ -41,6 +56,14 @@ export default function TaskFormScreen({ navigation, route }: Props) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [titleError, setTitleError] = useState('');
   const [error, setError] = useState('');
+
+  const returnToTasks = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Tasks');
+    }
+  };
 
   const existingTask = taskId ? tasks.find((task) => task.id === taskId) : undefined;
   const isEditing = Boolean(taskId);
@@ -96,28 +119,43 @@ export default function TaskFormScreen({ navigation, route }: Props) {
       }
 
       appLogger.success(isEditing ? 'taskForm.update' : 'taskForm.create');
-      navigation.goBack();
+      returnToTasks();
     } catch (error) {
       appLogger.failure(isEditing ? 'taskForm.update' : 'taskForm.create', error);
+
+      // A Firestore write can be accepted by the backend while the client
+      // request itself times out. Return to the list so it can reconcile from
+      // Firestore when the screen regains focus instead of trapping the user
+      // on the form.
+      if (isTimeoutError(error)) {
+        appLogger.action('taskForm.saveTimedOut');
+        returnToTasks();
+        return;
+      }
+
       setError('Could not save your task. Please try again.');
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <IconButton
+          icon="arrow-left"
+          iconColor={palette.white}
+          size={22}
           onPress={() => {
             appLogger.action('button.backFromTaskForm');
-            navigation.goBack();
+            returnToTasks();
           }}
-          iconColor="#2D3250"
+          accessibilityLabel="Go back"
+          style={styles.backButton}
         />
-        <Appbar.Content
-          title={isEditing ? 'Edit task' : 'New task'}
-          titleStyle={styles.appbarTitle}
-        />
-      </Appbar.Header>
+        <Text style={styles.title}>{isEditing ? 'Edit task' : 'New task'}</Text>
+        <Text style={styles.subtitle}>
+          {isEditing ? 'Update the details below.' : 'Add what needs to get done.'}
+        </Text>
+      </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -143,6 +181,8 @@ export default function TaskFormScreen({ navigation, route }: Props) {
             error={Boolean(titleError)}
             style={styles.input}
             outlineStyle={styles.inputOutline}
+            outlineColor={palette.slate}
+            activeOutlineColor={palette.orange}
             autoFocus={!isEditing}
           />
           <HelperText type="error" visible={Boolean(titleError)}>{titleError}</HelperText>
@@ -156,21 +196,24 @@ export default function TaskFormScreen({ navigation, route }: Props) {
             numberOfLines={4}
             style={[styles.input, styles.descriptionInput]}
             outlineStyle={styles.inputOutline}
+            outlineColor={palette.slate}
+            activeOutlineColor={palette.orange}
           />
 
-          <Text variant="labelLarge" style={styles.fieldLabel}>Due date</Text>
-          <Button
-            mode="outlined"
+          <Text style={styles.fieldLabel}>Due date</Text>
+          <Pressable
             onPress={() => {
               appLogger.action('button.openDatePicker');
               setShowDatePicker(true);
             }}
-            style={styles.dateButton}
-            contentStyle={styles.dateContent}
-            labelStyle={styles.dateLabel}
+            style={styles.dateField}
+            accessibilityRole="button"
+            accessibilityLabel="Choose due date"
           >
-            {formatDate(dueDate)}
-          </Button>
+            <IconButton icon="calendar-blank-outline" size={20} iconColor={palette.ink} style={styles.dateIcon} />
+            <Text style={styles.dateText}>{formatDate(dueDate)}</Text>
+            <IconButton icon="chevron-down" size={20} iconColor={palette.ink} style={styles.dateIcon} />
+          </Pressable>
           {showDatePicker ? (
             <DateTimePicker
               value={dueDate}
@@ -181,31 +224,56 @@ export default function TaskFormScreen({ navigation, route }: Props) {
             />
           ) : null}
 
-          <Text variant="labelLarge" style={styles.fieldLabel}>Priority</Text>
-          <SegmentedButtons
-            value={priority}
-            onValueChange={(value) => {
-              if (priorities.includes(value as Priority)) {
-                appLogger.action('button.changePriority', { priority: value });
-                setPriority(value as Priority);
-              }
-            }}
-            buttons={priorities.map((value) => ({ value, label: priorityLabels[value] }))}
-            style={styles.segmented}
-          />
+          <Text style={styles.fieldLabel}>Priority</Text>
+          <View style={styles.priorityRow}>
+            {priorities.map((value) => {
+              const selected = value === priority;
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => {
+                    appLogger.action('button.changePriority', { priority: value });
+                    setPriority(value);
+                  }}
+                  style={[styles.priorityChip, selected && styles.priorityChipSelected]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <View
+                    style={[
+                      styles.priorityDot,
+                      { backgroundColor: PRIORITY_DOT[value] ?? palette.slate },
+                    ]}
+                  />
+                  <Text style={[styles.priorityText, selected && styles.priorityTextSelected]}>
+                    {priorityLabels[value]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <Button
             mode="contained"
             onPress={() => void save()}
-            loading={isSaving}
             disabled={isSaving || (isEditing && !existingTask)}
             contentStyle={styles.saveContent}
             style={styles.saveButton}
+            labelStyle={styles.saveLabel}
           >
-            {isEditing ? 'Save changes' : 'Create task'}
+            {isSaving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task'}
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <BottomChipBar
+        active="taskForm"
+        onTasksPress={() => {
+          appLogger.action('button.openTasks');
+          navigation.navigate('Tasks');
+        }}
+        onNewTaskPress={() => appLogger.action('button.openNewTask')}
+      />
 
       <Snackbar
         visible={Boolean(error)}
@@ -222,20 +290,65 @@ export default function TaskFormScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F6F7FB' },
+  safeArea: { flex: 1, backgroundColor: palette.mist },
   flex: { flex: 1 },
-  appbar: { backgroundColor: '#F6F7FB', elevation: 0 },
-  appbarTitle: { color: '#2D3250', fontWeight: '800' },
-  content: { padding: 16, paddingBottom: 40 },
-  input: { marginBottom: 2, backgroundColor: '#FFFFFF' },
+
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    backgroundColor: palette.ink,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    margin: 0,
+    marginLeft: -4,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,155,81,0.22)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,155,81,0.5)',
+  },
+  title: { color: '#FFFFFF', fontSize: 32, fontWeight: '800', lineHeight: 38 },
+  subtitle: { marginTop: 4, color: palette.slate, fontSize: 15, lineHeight: 22 },
+
+  content: { padding: 16, paddingTop: 20, paddingBottom: 32 },
+  input: { backgroundColor: palette.white },
+  inputOutline: { borderRadius: 14, borderWidth: 1.5 },
   descriptionInput: { minHeight: 112, textAlignVertical: 'top' },
-  inputOutline: { borderRadius: 14, borderColor: '#E1E3EC' },
-  fieldLabel: { marginTop: 18, marginBottom: 8, color: '#2D3250', fontWeight: '800' },
-  dateButton: { borderRadius: 13, borderColor: '#D9DBE7' },
-  dateContent: { height: 50, justifyContent: 'flex-start' },
-  dateLabel: { marginLeft: 12, color: '#2D3250' },
-  segmented: { borderRadius: 13 },
-  saveButton: { marginTop: 30, borderRadius: 14 },
+
+  fieldLabel: { marginTop: 18, marginBottom: 8, color: palette.ink, fontSize: 14, fontWeight: '800' },
+  dateField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: palette.slate,
+    backgroundColor: palette.white,
+  },
+  dateIcon: { margin: 0 },
+  dateText: { flex: 1, color: palette.ink, fontSize: 15, fontWeight: '600' },
+
+  priorityRow: { flexDirection: 'row', gap: 10 },
+  priorityChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: palette.slate,
+    backgroundColor: palette.white,
+  },
+  priorityChipSelected: { borderColor: palette.orange, backgroundColor: palette.orange },
+  priorityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  priorityText: { color: palette.ink, fontSize: 14, fontWeight: '700' },
+  priorityTextSelected: { color: palette.ink },
+
+  saveButton: { marginTop: 28, borderRadius: 16, backgroundColor: palette.orange },
   saveContent: { height: 54 },
-  notFound: { marginBottom: 16, color: '#D84C4C' },
+  saveLabel: { color: palette.ink, fontSize: 16, fontWeight: '800' },
+  notFound: { marginBottom: 16, color: palette.orange },
 });
