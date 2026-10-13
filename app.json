@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Task Flow",
-    "slug": "Task Flow",
+    "slug": "task-flow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/files/icon.png",
@@ -23,6 +23,11 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "851d6988-cc35-43eb-9d04-948eb3941586"
+      }
+    }
   }
 }
