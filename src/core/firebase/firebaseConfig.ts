@@ -3,7 +3,7 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth, initializeAuth } from 'firebase/auth';
 // @ts-ignore Firebase's RN-specific export is available at runtime but omitted from the default typings.
 import { getReactNativePersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -24,6 +24,13 @@ const auth = appAlreadyInitialized
       persistence: getReactNativePersistence(AsyncStorage),
     });
 
-const db = getFirestore(app);
+// React Native/Expo networks and some proxies can buffer Firestore WebChannel
+// traffic indefinitely. Long polling makes the request/response transport
+// reliable in those environments.
+const db = appAlreadyInitialized
+  ? getFirestore(app)
+  : initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    });
 
 export { auth, db };
