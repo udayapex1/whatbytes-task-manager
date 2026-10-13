@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Image,
+  ImageBackground,
   Platform,
   Pressable,
   ScrollView,
@@ -64,28 +65,35 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
+      <ImageBackground
+        source={require('../../../assets/banner.jpeg')}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
       >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Image
-            source={require('../../../assets/files/logo-light.png')}
-            style={styles.logo}
-            accessibilityLabel="TaskFlow logo"
-          />
-          <Text variant="headlineMedium" style={styles.title}>Welcome back!</Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Stay on top of your work, one task at a time.
-          </Text>
+        <View style={styles.bannerHeader}>
+          <Text style={styles.bannerTitle}>Log in</Text>
+        </View>
 
-          <View style={styles.form}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}
+        >
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formCard}>
+              <Image
+                source={require('../../../assets/files/logo-light.png')}
+                style={styles.logo}
+                accessibilityLabel="TaskFlow logo"
+              />
+              <Text style={styles.brand}>TaskFlow</Text>
+
             <TextInput
-              label="Email address"
-              mode="outlined"
+              placeholder="Email"
+              mode="flat"
               value={email}
               onChangeText={(value) => {
                 setEmail(value);
@@ -96,7 +104,8 @@ export default function LoginScreen({ navigation }: Props) {
               autoComplete="email"
               error={Boolean(emailError)}
               style={styles.input}
-              outlineStyle={styles.inputOutline}
+              underlineColor="transparent"
+              activeUnderlineColor="transparent"
             />
             <HelperText type="error" visible={Boolean(emailError)}>
               {emailError}
@@ -104,8 +113,8 @@ export default function LoginScreen({ navigation }: Props) {
 
             <View>
               <TextInput
-                label="Password"
-                mode="outlined"
+                placeholder="Password"
+                mode="flat"
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value);
@@ -115,7 +124,8 @@ export default function LoginScreen({ navigation }: Props) {
                 autoComplete="password"
                 error={Boolean(passwordError)}
                 style={styles.input}
-                outlineStyle={styles.inputOutline}
+                underlineColor="transparent"
+                activeUnderlineColor="transparent"
               />
               <Pressable
                 accessibilityRole="button"
@@ -126,7 +136,7 @@ export default function LoginScreen({ navigation }: Props) {
                 }}
                 style={styles.passwordToggle}
               >
-                <Text style={styles.passwordToggleText}>{isPasswordVisible ? 'Hide' : 'Show'}</Text>
+              <Text style={styles.passwordToggleText}>{isPasswordVisible ? '◉' : '◌'}</Text>
               </Pressable>
             </View>
             <HelperText type="error" visible={Boolean(passwordError)}>
@@ -140,24 +150,25 @@ export default function LoginScreen({ navigation }: Props) {
               disabled={isSubmitting}
               contentStyle={styles.buttonContent}
               style={styles.button}
+              labelStyle={styles.buttonLabel}
             >
               Log in
             </Button>
-          </View>
-
-          <View style={styles.switchRow}>
-            <Text>Don't have an account? </Text>
-            <Pressable
-              onPress={() => {
-                appLogger.action('button.openRegister');
-                navigation.navigate('Register');
-              }}
-            >
-              <Text style={styles.link}>Get started</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+              <View style={styles.switchRow}>
+                <Text style={styles.switchText}>Don't have an account? </Text>
+                <Pressable
+                  onPress={() => {
+                    appLogger.action('button.openRegister');
+                    navigation.navigate('Register');
+                  }}
+                >
+                  <Text style={styles.link}>Sign up here</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ImageBackground>
 
       <Snackbar
         visible={Boolean(error)}
@@ -174,35 +185,36 @@ export default function LoginScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: { flex: 1, backgroundColor: '#050505' },
+  background: { flex: 1 },
+  backgroundImage: { resizeMode: 'cover' },
   flex: { flex: 1 },
   content: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
+  bannerHeader: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl },
+  bannerTitle: { color: '#FFFFFF', fontSize: 34, fontWeight: '800' },
+  formCard: { padding: spacing.lg, borderRadius: 30, backgroundColor: '#FFFFFF' },
   logo: {
     alignSelf: 'center',
-    width: 92,
-    height: 92,
-    marginBottom: spacing.lg,
-    borderRadius: 24,
+    width: 58,
+    height: 58,
+    marginBottom: spacing.xs,
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#6C63FF',
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
   },
-  title: { textAlign: 'center', color: '#2D3250', fontWeight: '800' },
-  subtitle: { marginTop: spacing.sm, textAlign: 'center', color: '#73788D' },
-  form: { marginTop: spacing.xl },
-  input: { backgroundColor: '#F6F7FB' },
-  inputOutline: { borderRadius: 14, borderColor: '#E4E6EF' },
-  passwordToggle: { position: 'absolute', right: 14, top: 17 },
-  passwordToggleText: { color: '#6C63FF', fontWeight: '700' },
-  button: { marginTop: spacing.md, borderRadius: 14 },
+  brand: { marginBottom: spacing.md, textAlign: 'center', color: '#E65062', fontSize: 20, fontWeight: '800' },
+  input: { height: 48, marginTop: spacing.sm, paddingHorizontal: spacing.md, borderRadius: 24, backgroundColor: '#F0F0F0' },
+  passwordToggle: { position: 'absolute', right: 18, top: 22 },
+  passwordToggleText: { color: '#686868', fontSize: 16 },
+  button: { marginTop: spacing.lg, borderRadius: 24, backgroundColor: '#050505' },
   buttonContent: { height: 54 },
-  switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.xl },
-  link: { color: '#6C63FF', fontWeight: '700' },
+  buttonLabel: { color: '#FFFFFF', fontWeight: '800' },
+  switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
+  switchText: { color: '#555555', fontSize: 12 },
+  link: { color: '#111111', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' },
 });

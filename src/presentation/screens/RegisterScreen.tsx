@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Image,
+  ImageBackground,
   Platform,
   Pressable,
   ScrollView,
@@ -70,121 +71,133 @@ export default function RegisterScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
+      <ImageBackground
+        source={require('../../../assets/banner.jpeg')}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
       >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+        <View style={styles.bannerHeader}>
+          <Text style={styles.bannerTitle}>Create an account</Text>
+        </View>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}
         >
-          <Image
-            source={require('../../../assets/files/logo-light.png')}
-            style={styles.logo}
-            accessibilityLabel="TaskFlow logo"
-          />
-          <Text variant="headlineMedium" style={styles.title}>Let's get started!</Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Create your workspace and make every day count.
-          </Text>
-
-          <View style={styles.form}>
-            <TextInput
-              label="Email address"
-              mode="outlined"
-              value={email}
-              onChangeText={(value) => {
-                setEmail(value);
-                if (emailError) setEmailError('');
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              error={Boolean(emailError)}
-              style={styles.input}
-              outlineStyle={styles.inputOutline}
-            />
-            <HelperText type="error" visible={Boolean(emailError)}>{emailError}</HelperText>
-
-            <View>
-              <TextInput
-                label="Password"
-                mode="outlined"
-                value={password}
-                onChangeText={(value) => {
-                  setPassword(value);
-                  if (passwordError) setPasswordError('');
-                }}
-                secureTextEntry={!isPasswordVisible}
-                autoComplete="new-password"
-                error={Boolean(passwordError)}
-                style={styles.input}
-                outlineStyle={styles.inputOutline}
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formCard}>
+              <Image
+                source={require('../../../assets/files/logo-light.png')}
+                style={styles.logo}
+                accessibilityLabel="TaskFlow logo"
               />
-              <Pressable
-                onPress={() => {
-                  appLogger.action('button.toggleRegisterPassword');
-                  setIsPasswordVisible((visible) => !visible);
-                }}
-                style={styles.passwordToggle}
-              >
-                <Text style={styles.passwordToggleText}>{isPasswordVisible ? 'Hide' : 'Show'}</Text>
-              </Pressable>
-            </View>
-            <HelperText type="error" visible={Boolean(passwordError)}>{passwordError}</HelperText>
+              <Text style={styles.brand}>TaskFlow</Text>
 
-            <View>
               <TextInput
-                label="Confirm password"
-                mode="outlined"
-                value={confirmPassword}
+                placeholder="Email"
+                mode="flat"
+                value={email}
                 onChangeText={(value) => {
-                  setConfirmPassword(value);
-                  if (confirmError) setConfirmError('');
+                  setEmail(value);
+                  if (emailError) setEmailError('');
                 }}
-                secureTextEntry={!isConfirmVisible}
-                autoComplete="new-password"
-                error={Boolean(confirmError)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                error={Boolean(emailError)}
                 style={styles.input}
-                outlineStyle={styles.inputOutline}
+                underlineColor="transparent"
+                activeUnderlineColor="transparent"
               />
-              <Pressable
-                onPress={() => {
-                  appLogger.action('button.toggleConfirmPassword');
-                  setIsConfirmVisible((visible) => !visible);
-                }}
-                style={styles.passwordToggle}
+              <HelperText type="error" visible={Boolean(emailError)}>{emailError}</HelperText>
+
+              <View>
+                <TextInput
+                  placeholder="Password"
+                  mode="flat"
+                  value={password}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  secureTextEntry={!isPasswordVisible}
+                  autoComplete="new-password"
+                  error={Boolean(passwordError)}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor="transparent"
+                />
+                <Pressable
+                  onPress={() => {
+                    appLogger.action('button.toggleRegisterPassword');
+                    setIsPasswordVisible((visible) => !visible);
+                  }}
+                  style={styles.passwordToggle}
+                >
+                  <Text style={styles.passwordToggleText}>{isPasswordVisible ? '◉' : '◌'}</Text>
+                </Pressable>
+              </View>
+              <HelperText type="error" visible={Boolean(passwordError)}>{passwordError}</HelperText>
+
+              <View>
+                <TextInput
+                  placeholder="Confirm password"
+                  mode="flat"
+                  value={confirmPassword}
+                  onChangeText={(value) => {
+                    setConfirmPassword(value);
+                    if (confirmError) setConfirmError('');
+                  }}
+                  secureTextEntry={!isConfirmVisible}
+                  autoComplete="new-password"
+                  error={Boolean(confirmError)}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor="transparent"
+                />
+                <Pressable
+                  onPress={() => {
+                    appLogger.action('button.toggleConfirmPassword');
+                    setIsConfirmVisible((visible) => !visible);
+                  }}
+                  style={styles.passwordToggle}
+                >
+                  <Text style={styles.passwordToggleText}>{isConfirmVisible ? '◉' : '◌'}</Text>
+                </Pressable>
+              </View>
+              <HelperText type="error" visible={Boolean(confirmError)}>{confirmError}</HelperText>
+
+              <Button
+                mode="contained"
+                onPress={() => void submit()}
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                contentStyle={styles.buttonContent}
+                style={styles.button}
+                labelStyle={styles.buttonLabel}
               >
-                <Text style={styles.passwordToggleText}>{isConfirmVisible ? 'Hide' : 'Show'}</Text>
-              </Pressable>
+                Create account
+              </Button>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchText}>Already have an account? </Text>
+                <Pressable
+                  onPress={() => {
+                    appLogger.action('button.openLogin');
+                    navigation.navigate('Login');
+                  }}
+                >
+                  <Text style={styles.link}>Log in here</Text>
+                </Pressable>
+              </View>
             </View>
-            <HelperText type="error" visible={Boolean(confirmError)}>{confirmError}</HelperText>
-
-            <Button
-              mode="contained"
-              onPress={() => void submit()}
-              loading={isSubmitting}
-              disabled={isSubmitting}
-              contentStyle={styles.buttonContent}
-              style={styles.button}
-            >
-              Sign up
-            </Button>
-          </View>
-
-          <View style={styles.switchRow}>
-            <Text>Already have an account? </Text>
-            <Pressable
-              onPress={() => {
-                appLogger.action('button.openLogin');
-                navigation.navigate('Login');
-              }}
-            >
-              <Text style={styles.link}>Log in</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ImageBackground>
 
       <Snackbar
         visible={Boolean(error)}
@@ -201,23 +214,32 @@ export default function RegisterScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: { flex: 1, backgroundColor: '#050505' },
+  background: { flex: 1 },
+  backgroundImage: { resizeMode: 'cover' },
   flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg },
-  logo: {
-    alignSelf: 'center', width: 92, height: 92,
-    marginBottom: spacing.lg, borderRadius: 24, overflow: 'hidden', shadowColor: '#6C63FF',
-    shadowOpacity: 0.24, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8,
+  content: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  title: { textAlign: 'center', color: '#2D3250', fontWeight: '800' },
-  subtitle: { marginTop: spacing.sm, textAlign: 'center', color: '#73788D' },
-  form: { marginTop: spacing.xl },
-  input: { backgroundColor: '#F6F7FB' },
-  inputOutline: { borderRadius: 14, borderColor: '#E4E6EF' },
-  passwordToggle: { position: 'absolute', right: 14, top: 17 },
-  passwordToggleText: { color: '#6C63FF', fontWeight: '700' },
-  button: { marginTop: spacing.md, borderRadius: 14 },
+  bannerHeader: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl },
+  bannerTitle: { color: '#FFFFFF', fontSize: 34, fontWeight: '800' },
+  formCard: { padding: spacing.lg, borderRadius: 30, backgroundColor: '#FFFFFF' },
+  logo: {
+    alignSelf: 'center', width: 58, height: 58,
+    marginBottom: spacing.xs, borderRadius: 16, overflow: 'hidden',
+  },
+  brand: { marginBottom: spacing.md, textAlign: 'center', color: '#E65062', fontSize: 20, fontWeight: '800' },
+  input: { height: 48, marginTop: spacing.sm, paddingHorizontal: spacing.md, borderRadius: 24, backgroundColor: '#F0F0F0' },
+  passwordToggle: { position: 'absolute', right: 18, top: 22 },
+  passwordToggleText: { color: '#686868', fontSize: 16 },
+  button: { marginTop: spacing.lg, borderRadius: 24, backgroundColor: '#050505' },
   buttonContent: { height: 54 },
-  switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.xl },
-  link: { color: '#6C63FF', fontWeight: '700' },
+  buttonLabel: { color: '#FFFFFF', fontWeight: '800' },
+  switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
+  switchText: { color: '#555555', fontSize: 12 },
+  link: { color: '#111111', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' },
 });
