@@ -42,6 +42,7 @@ export default function TaskListScreen({ navigation }: Props) {
   const priorityFilter = useTaskStore((state) => state.priorityFilter);
   const statusFilter = useTaskStore((state) => state.statusFilter);
   const isLoading = useTaskStore((state) => state.isLoading);
+  const loadedUserId = useTaskStore((state) => state.loadedUserId);
   const fetchTasks = useTaskStore((state) => state.fetchTasks);
   const deleteTask = useTaskStore((state) => state.deleteTask);
   const toggleTaskStatus = useTaskStore((state) => state.toggleTaskStatus);
@@ -52,7 +53,10 @@ export default function TaskListScreen({ navigation }: Props) {
   const clearTaskError = useTaskStore((state) => state.clearError);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+  const waitingForTasks = user != null && loadedUserId !== user.id;
+  const showTaskSkeleton = (isLoading || waitingForTasks) && tasks.length === 0;
 
   const visibleTasks = useMemo(
     () => selectVisibleTasks(tasks, priorityFilter, statusFilter),
@@ -65,7 +69,8 @@ export default function TaskListScreen({ navigation }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      if (user) void fetchTasks(user.id);
+      if (!user) return;
+      void fetchTasks(user.id, { silent: true });
     }, [fetchTasks, user]),
   );
 
@@ -77,7 +82,7 @@ export default function TaskListScreen({ navigation }: Props) {
     appLogger.action('button.refreshTasks');
     if (!user) return;
     setRefreshing(true);
-    await fetchTasks(user.id);
+    await fetchTasks(user.id, { silent: true });
     setRefreshing(false);
   };
 
@@ -202,7 +207,7 @@ export default function TaskListScreen({ navigation }: Props) {
             task={item}
             onPress={() => {
               appLogger.action('button.viewTask');
-              setSelectedTask(item);
+              setSelectedTaskId(item.id);
             }}
             onToggle={() => void handleToggle(item.id)}
             onDelete={() => handleDelete(item.id, item.title)}
@@ -219,7 +224,7 @@ export default function TaskListScreen({ navigation }: Props) {
           />
         }
         ListEmptyComponent={
-          isLoading && tasks.length === 0 ? (
+          showTaskSkeleton ? (
             <LoadingView />
           ) : (
             <EmptyState
@@ -227,7 +232,7 @@ export default function TaskListScreen({ navigation }: Props) {
               onClearFilters={resetFilters}
               onAddTask={() => {
                 appLogger.action('button.addTaskFromEmptyState');
-                navigation.navigate('TaskForm');
+                navigation.navigate('TaskForm', { taskId: null });
               }}
             />
           )
@@ -241,7 +246,7 @@ export default function TaskListScreen({ navigation }: Props) {
         onTasksPress={() => appLogger.action('button.openTasks')}
         onNewTaskPress={() => {
           appLogger.action('button.addTask');
-          navigation.navigate('TaskForm');
+          navigation.navigate('TaskForm', { taskId: null });
         }}
       />
 
@@ -249,13 +254,13 @@ export default function TaskListScreen({ navigation }: Props) {
         visible={Boolean(selectedTask)}
         transparent
         animationType="fade"
-        onRequestClose={() => setSelectedTask(null)}
+        onRequestClose={() => setSelectedTaskId(null)}
       >
         <Pressable
           style={styles.modalBackdrop}
           onPress={() => {
             appLogger.action('button.dismissTaskDetails');
-            setSelectedTask(null);
+            setSelectedTaskId(null);
           }}
         >
           <Pressable style={styles.modalCard} onPress={() => undefined}>
@@ -270,7 +275,7 @@ export default function TaskListScreen({ navigation }: Props) {
                 size={20}
                 onPress={() => {
                   appLogger.action('button.dismissTaskDetails');
-                  setSelectedTask(null);
+                  setSelectedTaskId(null);
                 }}
                 accessibilityLabel="Close task details"
                 style={styles.modalClose}
@@ -304,7 +309,7 @@ export default function TaskListScreen({ navigation }: Props) {
             <View style={styles.modalActions}>
               <Button
                 mode="outlined"
-                onPress={() => setSelectedTask(null)}
+                onPress={() => setSelectedTaskId(null)}
                 style={styles.modalAction}
               >
                 Close
@@ -315,7 +320,7 @@ export default function TaskListScreen({ navigation }: Props) {
                   if (!selectedTask) return;
                   appLogger.action('button.editTask');
                   const taskId = selectedTask.id;
-                  setSelectedTask(null);
+                  setSelectedTaskId(null);
                   navigation.navigate('TaskForm', { taskId });
                 }}
                 style={[styles.modalAction, styles.modalEditAction]}

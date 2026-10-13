@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "WhatBytes Task Manager",
-    "slug": "whatbytes-task-manager",
+    "name": "Task Flow",
+    "slug": "Task Flow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/files/icon.png",

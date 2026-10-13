@@ -10,7 +10,7 @@ import Skeleton from '../components/Skeleton';
 
 export default function RootNavigator() {
   const user = useAuthStore((state) => state.user);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const isHydrating = useAuthStore((state) => state.isHydrating);
   const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function RootNavigator() {
     return initialize();
   }, [initialize]);
 
-  if (isLoading) {
+  if (isHydrating) {
     return (
       <View style={styles.loading}>
         <View style={styles.brandRow}>

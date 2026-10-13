@@ -1,5 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  Animated,
+  AccessibilityInfo,
+  Easing,
   KeyboardAvoidingView,
   Image,
   ImageBackground,
@@ -15,9 +18,9 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import {
+  Avatar,
   Button,
   HelperText,
-  Snackbar,
   Text,
   TextInput,
 } from "react-native-paper";
@@ -27,15 +30,24 @@ import type { AuthStackParamList } from "../navigation/AuthStack";
 import { getAuthErrorMessage } from "../../core/utils/authErrors";
 import { palette, spacing } from "../../core/theme/theme";
 import { appLogger } from "../../core/utils/appLogger";
+import TaskFlowAlert from "../components/TaskFlowAlert";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
+type Field = "email" | "password";
 
 const isValidEmail = (email: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-// Dependency-free vertical gradient: transparent at top -> dark at bottom.
-const SCRIM_BANDS = 16;
-const scrimOpacity = (i: number) => Math.pow(i / (SCRIM_BANDS - 1), 1.4) * 0.88;
+// Dependency-free vertical gradient. Many thin bands keep the steps invisible
+// (16 bands showed as stripes). Darkens the top (logo contrast) and the bottom
+// (headline contrast); the middle stays clear so the artwork shows.
+const SCRIM_BANDS = 80;
+const scrimOpacity = (i: number) => {
+  const t = i / (SCRIM_BANDS - 1);
+  const bottom = Math.pow(t, 1.4) * 0.88;
+  const top = Math.max(0, 1 - t / 0.3) * 0.5;
+  return 1 - (1 - bottom) * (1 - top);
+};
 
 export default function LoginScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -47,17 +59,59 @@ export default function LoginScreen({ navigation }: Props) {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [error, setError] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [focused, setFocused] = useState<Field | null>(null);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // One orchestrated moment: the sheet rises into place on mount.
+  const sheetY = useRef(new Animated.Value(48)).current;
+  const sheetOpacity = useRef(new Animated.Value(0)).current;
 
   // No header (and no header buttons like settings) before login.
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const scrollToFocusedInput = () => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) {
+        sheetY.setValue(0);
+        sheetOpacity.setValue(1);
+        return;
+      }
+      Animated.parallel([
+        Animated.timing(sheetY, {
+          toValue: 0,
+          duration: 480,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sheetOpacity, {
+          toValue: 1,
+          duration: 360,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sheetY, sheetOpacity]);
+
+  const handleFocus = (field: Field) => {
+    setFocused(field);
+    if (field !== "email") {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
+    }
   };
+
+  const fieldStyle = (field: Field) => [
+    styles.input,
+    focused === field && styles.inputFocused,
+  ];
 
   const submit = async () => {
     if (isSubmitting) return;
@@ -81,12 +135,15 @@ export default function LoginScreen({ navigation }: Props) {
 
     setIsSubmitting(true);
     setError("");
+    setAlertMessage("");
 
     try {
       await login(email.trim(), password);
       appLogger.success("login.submit");
     } catch (authError) {
-      setError(getAuthErrorMessage(authError));
+      const message = getAuthErrorMessage(authError);
+      setError(message);
+      setAlertMessage(message);
       appLogger.failure("login.submit", authError);
     } finally {
       setIsSubmitting(false);
@@ -138,26 +195,41 @@ export default function LoginScreen({ navigation }: Props) {
               </View>
 
               <View>
-                <Text style={styles.title}>Welcome back</Text>
+                <Text accessibilityRole="header" style={styles.title}>
+                  Welcome back
+                </Text>
                 <Text style={styles.subtitle}>
                   Log in to pick up where you left off.
                 </Text>
               </View>
             </View>
 
-            <View
+            <Animated.View
               style={[
                 styles.sheet,
                 { paddingBottom: spacing.lg + insets.bottom },
+                { opacity: sheetOpacity, transform: [{ translateY: sheetY }] },
               ]}
             >
+              <View style={styles.badgeRing} pointerEvents="none">
+                <Avatar.Icon
+                  size={56}
+                  icon="login-variant"
+                  color={palette.ink}
+                  style={styles.badge}
+                />
+              </View>
+
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                placeholder="Email address"
+                placeholder="you@example.com"
+                accessibilityLabel="Email address"
                 mode="outlined"
                 value={email}
                 onChangeText={(value) => {
                   setEmail(value);
                   if (emailError) setEmailError("");
+                  if (alertMessage) setAlertMessage("");
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -166,11 +238,12 @@ export default function LoginScreen({ navigation }: Props) {
                 textContentType="username"
                 returnKeyType="next"
                 onSubmitEditing={() => passwordRef.current?.focus()}
-                onFocus={scrollToFocusedInput}
+                onFocus={() => handleFocus("email")}
+                onBlur={() => setFocused(null)}
                 blurOnSubmit={false}
                 error={Boolean(emailError)}
                 left={<TextInput.Icon icon="email-outline" />}
-                style={styles.input}
+                style={fieldStyle("email")}
                 outlineStyle={styles.inputOutline}
                 outlineColor="transparent"
                 activeOutlineColor={palette.orange}
@@ -179,14 +252,17 @@ export default function LoginScreen({ navigation }: Props) {
                 {emailError}
               </HelperText>
 
+              <Text style={styles.label}>Password</Text>
               <TextInput
                 ref={passwordRef}
-                placeholder="Password"
+                placeholder="Enter your password"
+                accessibilityLabel="Password"
                 mode="outlined"
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value);
                   if (passwordError) setPasswordError("");
+                  if (alertMessage) setAlertMessage("");
                 }}
                 secureTextEntry={!isPasswordVisible}
                 autoCapitalize="none"
@@ -194,7 +270,8 @@ export default function LoginScreen({ navigation }: Props) {
                 textContentType="password"
                 returnKeyType="go"
                 onSubmitEditing={() => void submit()}
-                onFocus={scrollToFocusedInput}
+                onFocus={() => handleFocus("password")}
+                onBlur={() => setFocused(null)}
                 error={Boolean(passwordError)}
                 left={<TextInput.Icon icon="lock-outline" />}
                 right={
@@ -209,7 +286,7 @@ export default function LoginScreen({ navigation }: Props) {
                     }}
                   />
                 }
-                style={styles.input}
+                style={fieldStyle("password")}
                 outlineStyle={styles.inputOutline}
                 outlineColor="transparent"
                 activeOutlineColor={palette.orange}
@@ -221,12 +298,14 @@ export default function LoginScreen({ navigation }: Props) {
               <Button
                 mode="contained"
                 onPress={() => void submit()}
+                icon={isSubmitting ? undefined : "arrow-right"}
+                loading={isSubmitting}
                 disabled={isSubmitting}
                 contentStyle={styles.buttonContent}
                 style={styles.button}
                 labelStyle={styles.buttonLabel}
               >
-                {isSubmitting ? 'Signing in…' : 'Log in'}
+                {isSubmitting ? "Signing in…" : "Log in"}
               </Button>
 
               <View style={styles.switchRow}>
@@ -253,21 +332,31 @@ export default function LoginScreen({ navigation }: Props) {
               >
                 <Text style={styles.privacyLink}>Privacy Policy</Text>
               </Pressable>
-            </View>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </ImageBackground>
 
-      <Snackbar
-        visible={Boolean(error)}
+      <TaskFlowAlert
+        visible={Boolean(alertMessage)}
+        title="Unable to log in"
+        message={alertMessage || error}
         onDismiss={() => {
-          appLogger.action("button.dismissLoginError");
+          appLogger.action("button.dismissLoginAlert");
           setError("");
+          setAlertMessage("");
         }}
-        duration={4500}
-      >
-        {error}
-      </Snackbar>
+        actions={[
+          {
+            label: "Close",
+            onPress: () => {
+              setError("");
+              setAlertMessage("");
+            },
+            variant: "primary",
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -283,7 +372,7 @@ const styles = StyleSheet.create({
 
   hero: {
     flex: 1,
-    minHeight: 280,
+    minHeight: 300,
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -314,15 +403,16 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#FFFFFF",
-    fontSize: 36,
+    fontSize: 46,
     fontWeight: "800",
-    lineHeight: 42,
+    lineHeight: 48,
+    letterSpacing: -0.8,
     textShadowColor: "rgba(37,52,63,0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 8,
   },
   subtitle: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     maxWidth: 300,
     color: palette.mist,
     fontSize: 15,
@@ -334,20 +424,37 @@ const styles = StyleSheet.create({
 
   sheet: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    paddingTop: spacing.xl + 20,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
     backgroundColor: palette.white,
   },
+  badgeRing: {
+    position: "absolute",
+    top: -32,
+    left: spacing.lg,
+    padding: 5,
+    borderRadius: 40,
+    backgroundColor: palette.white,
+  },
+  badge: { backgroundColor: palette.orange },
+  label: {
+    marginBottom: 6,
+    color: palette.ink,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   input: { height: 52, backgroundColor: palette.mist },
+  inputFocused: { backgroundColor: palette.white },
   inputOutline: { borderRadius: FIELD_RADIUS, borderWidth: 1.5 },
+
   button: {
     marginTop: spacing.md,
-    borderRadius: 16,
-    backgroundColor: palette.orange,
+    borderRadius: 18,
+    backgroundColor: palette.ink,
   },
-  buttonContent: { height: 54 },
-  buttonLabel: { color: palette.ink, fontSize: 16, fontWeight: "800" },
+  buttonContent: { height: 58, flexDirection: "row-reverse" },
+  buttonLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
   switchRow: {
     flexDirection: "row",
     justifyContent: "center",

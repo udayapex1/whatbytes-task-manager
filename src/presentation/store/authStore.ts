@@ -6,10 +6,11 @@ import { loginUser } from '../../domain/usecases/auth/loginUser';
 import { logoutUser } from '../../domain/usecases/auth/logoutUser';
 import { registerUser } from '../../domain/usecases/auth/registerUser';
 import { appLogger } from '../../core/utils/appLogger';
+import { useTaskStore } from './taskStore';
 
 interface AuthState {
   user: User | null;
-  isLoading: boolean;
+  isHydrating: boolean;
   error: string | null;
   initialize: () => () => void;
   login: (email: string, password: string) => Promise<void>;
@@ -32,29 +33,37 @@ const getRepository = (): AuthRepository => {
   return authRepository;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+const resetTasksIfUserChanged = (previousUserId: string | null, nextUser: User | null) => {
+  const nextUserId = nextUser?.id ?? null;
+  if (previousUserId === nextUserId) return;
+  useTaskStore.getState().reset();
+};
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isLoading: true,
+  isHydrating: true,
   error: null,
 
   initialize: () => {
     appLogger.action('auth.initialize');
     return getRepository().subscribeToAuthState((user) => {
       appLogger.success('auth.stateChanged', { signedIn: Boolean(user) });
-      set({ user, isLoading: false, error: null });
+      resetTasksIfUserChanged(get().user?.id ?? null, user);
+      set({ user, isHydrating: false, error: null });
     });
   },
 
   login: async (email, password) => {
     appLogger.action('auth.login');
-    set({ isLoading: true, error: null });
+    set({ error: null });
 
     try {
       const user = await loginUser(getRepository(), email, password);
-      set({ user, isLoading: false });
+      resetTasksIfUserChanged(get().user?.id ?? null, user);
+      set({ user, isHydrating: false });
       appLogger.success('auth.login');
     } catch (error) {
-      set({ isLoading: false, error: getAuthErrorMessage(error) });
+      set({ error: getAuthErrorMessage(error) });
       appLogger.failure('auth.login', error);
       throw error;
     }
@@ -62,14 +71,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   register: async (email, password) => {
     appLogger.action('auth.register');
-    set({ isLoading: true, error: null });
+    set({ error: null });
 
     try {
       const user = await registerUser(getRepository(), email, password);
-      set({ user, isLoading: false });
+      resetTasksIfUserChanged(get().user?.id ?? null, user);
+      set({ user, isHydrating: false });
       appLogger.success('auth.register');
     } catch (error) {
-      set({ isLoading: false, error: getAuthErrorMessage(error) });
+      set({ error: getAuthErrorMessage(error) });
       appLogger.failure('auth.register', error);
       throw error;
     }
@@ -77,14 +87,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     appLogger.action('auth.logout');
-    set({ isLoading: true, error: null });
+    set({ error: null });
 
     try {
       await logoutUser(getRepository());
-      set({ user: null, isLoading: false });
+      resetTasksIfUserChanged(get().user?.id ?? null, null);
+      set({ user: null, isHydrating: false });
       appLogger.success('auth.logout');
     } catch (error) {
-      set({ isLoading: false, error: getAuthErrorMessage(error) });
+      set({ error: getAuthErrorMessage(error) });
       appLogger.failure('auth.logout', error);
       throw error;
     }

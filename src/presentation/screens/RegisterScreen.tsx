@@ -1,6 +1,8 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
+  Animated,
+  AccessibilityInfo,
+  Easing,
   KeyboardAvoidingView,
   Image,
   ImageBackground,
@@ -15,7 +17,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { Button, HelperText, Text, TextInput } from "react-native-paper";
+import { Avatar, Button, HelperText, Text, TextInput } from "react-native-paper";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { getAuthErrorMessage } from "../../core/utils/authErrors";
 import { palette, spacing } from "../../core/theme/theme";
@@ -24,6 +26,10 @@ import type { AuthStackParamList } from "../navigation/AuthStack";
 import { useAuthStore } from "../store/authStore";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
+type Field = "email" | "password" | "confirm";
+
+const MIN_PASSWORD_LENGTH = 8;
+const SUCCESS = "#2E9E6B";
 
 const isValidEmail = (email: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -44,22 +50,34 @@ const STRENGTH_COLORS = [
   palette.slate,
   palette.orange,
   palette.orange,
-  palette.ink,
-  palette.ink,
+  SUCCESS,
+  SUCCESS,
 ];
 
-// Dependency-free vertical gradient: transparent at top -> dark at bottom.
-const SCRIM_BANDS = 16;
-const scrimOpacity = (i: number) => Math.pow(i / (SCRIM_BANDS - 1), 1.4) * 0.88;
+const getRequirements = (value: string) => [
+  { key: "len", label: "8+ characters", ok: value.length >= MIN_PASSWORD_LENGTH },
+  { key: "case", label: "Aa upper & lower", ok: /[a-z]/.test(value) && /[A-Z]/.test(value) },
+  { key: "sym", label: "1 number & symbol", ok: /\d/.test(value) && /[^A-Za-z0-9]/.test(value) },
+];
+
+// Dependency-free vertical gradient. Many thin bands keep the steps invisible
+// (16 bands showed as stripes). Darkens the top (logo contrast) and the bottom
+// (headline contrast); the middle stays clear so the artwork shows.
+const SCRIM_BANDS = 80;
+const scrimOpacity = (i: number) => {
+  const t = i / (SCRIM_BANDS - 1);
+  const bottom = Math.pow(t, 1.4) * 0.88;
+  const top = Math.max(0, 1 - t / 0.3) * 0.5;
+  return 1 - (1 - bottom) * (1 - top);
+};
 
 const DUPLICATE_EMAIL_MESSAGE =
-  "This email is already in use. Try logging in instead, or use a different email address.";
+  "This email already has an account. Log in, or use a different email.";
 
 const getAuthErrorCode = (error: unknown): string | undefined => {
   if (typeof error === "object" && error !== null && "code" in error) {
     return typeof error.code === "string" ? error.code : undefined;
   }
-
   return undefined;
 };
 
@@ -75,7 +93,6 @@ const isDuplicateEmailError = (error: unknown): boolean => {
   ) {
     return true;
   }
-
   const message =
     error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return message.includes("already in use") || message.includes("already exists");
@@ -94,19 +111,70 @@ export default function RegisterScreen({ navigation }: Props) {
   const [passwordError, setPasswordError] = useState("");
   const [confirmError, setConfirmError] = useState("");
   const [error, setError] = useState("");
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [focused, setFocused] = useState<Field | null>(null);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmVisible, setIsConfirmVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
+  const requirements = useMemo(() => getRequirements(password), [password]);
+  const passwordsMatch =
+    confirmPassword.length > 0 && confirmPassword === password;
+
+  // One orchestrated moment: the sheet rises into place on mount.
+  const sheetY = useRef(new Animated.Value(48)).current;
+  const sheetOpacity = useRef(new Animated.Value(0)).current;
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const scrollToFocusedInput = () => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) {
+        sheetY.setValue(0);
+        sheetOpacity.setValue(1);
+        return;
+      }
+      Animated.parallel([
+        Animated.timing(sheetY, {
+          toValue: 0,
+          duration: 480,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sheetOpacity, {
+          toValue: 1,
+          duration: 360,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sheetY, sheetOpacity]);
+
+  const handleFocus = (field: Field) => {
+    setFocused(field);
+    // Email sits near the top and needs no scrolling.
+    if (field !== "email") {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
+    }
   };
+
+  const clearErrors = () => {
+    if (error) setError("");
+    if (isDuplicate) setIsDuplicate(false);
+  };
+
+  const fieldStyle = (field: Field) => [
+    styles.input,
+    focused === field && styles.inputFocused,
+  ];
 
   const submit = async () => {
     if (isSubmitting) return;
@@ -115,7 +183,9 @@ export default function RegisterScreen({ navigation }: Props) {
       ? ""
       : "Enter a valid email address.";
     const nextPasswordError =
-      password.length >= 6 ? "" : "Password must be at least 6 characters.";
+      password.length >= MIN_PASSWORD_LENGTH
+        ? ""
+        : `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
     const nextConfirmError =
       password === confirmPassword ? "" : "Passwords do not match.";
 
@@ -134,6 +204,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
     setIsSubmitting(true);
     setError("");
+    setIsDuplicate(false);
 
     try {
       await register(email.trim(), password);
@@ -141,20 +212,7 @@ export default function RegisterScreen({ navigation }: Props) {
     } catch (authError) {
       if (isDuplicateEmailError(authError)) {
         setError(DUPLICATE_EMAIL_MESSAGE);
-        Alert.alert(
-          "Email already in use",
-          DUPLICATE_EMAIL_MESSAGE,
-          [
-            { text: "Use different email", style: "cancel" },
-            {
-              text: "Log in",
-              onPress: () => {
-                appLogger.action("button.openLoginFromDuplicateEmail");
-                navigation.navigate("Login");
-              },
-            },
-          ],
-        );
+        setIsDuplicate(true);
       } else {
         setError(getAuthErrorMessage(authError));
       }
@@ -209,27 +267,41 @@ export default function RegisterScreen({ navigation }: Props) {
               </View>
 
               <View>
-                <Text style={styles.title}>Create an account</Text>
+                <Text accessibilityRole="header" style={styles.title}>
+                  Create your account
+                </Text>
                 <Text style={styles.subtitle}>
-                  Sign up to start organizing your tasks in minutes.
+                  Plan your day, track what matters, and finish more.
                 </Text>
               </View>
             </View>
 
-            <View
+            <Animated.View
               style={[
                 styles.sheet,
                 { paddingBottom: spacing.lg + insets.bottom },
+                { opacity: sheetOpacity, transform: [{ translateY: sheetY }] },
               ]}
             >
+              <View style={styles.badgeRing} pointerEvents="none">
+                <Avatar.Icon
+                  size={56}
+                  icon="account-plus-outline"
+                  color={palette.ink}
+                  style={styles.badge}
+                />
+              </View>
+
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                placeholder="Email address"
+                placeholder="you@example.com"
+                accessibilityLabel="Email address"
                 mode="outlined"
                 value={email}
                 onChangeText={(value) => {
                   setEmail(value);
                   if (emailError) setEmailError("");
-                  if (error) setError("");
+                  clearErrors();
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -238,11 +310,12 @@ export default function RegisterScreen({ navigation }: Props) {
                 textContentType="emailAddress"
                 returnKeyType="next"
                 onSubmitEditing={() => passwordRef.current?.focus()}
-                onFocus={scrollToFocusedInput}
+                onFocus={() => handleFocus("email")}
+                onBlur={() => setFocused(null)}
                 blurOnSubmit={false}
                 error={Boolean(emailError)}
                 left={<TextInput.Icon icon="email-outline" />}
-                style={styles.input}
+                style={fieldStyle("email")}
                 outlineStyle={styles.inputOutline}
                 outlineColor="transparent"
                 activeOutlineColor={palette.orange}
@@ -251,15 +324,17 @@ export default function RegisterScreen({ navigation }: Props) {
                 {emailError}
               </HelperText>
 
+              <Text style={styles.label}>Password</Text>
               <TextInput
                 ref={passwordRef}
-                placeholder="Password"
+                placeholder="Create a password"
+                accessibilityLabel="Password"
                 mode="outlined"
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value);
                   if (passwordError) setPasswordError("");
-                  if (error) setError("");
+                  clearErrors();
                 }}
                 secureTextEntry={!isPasswordVisible}
                 autoCapitalize="none"
@@ -267,7 +342,8 @@ export default function RegisterScreen({ navigation }: Props) {
                 textContentType="newPassword"
                 returnKeyType="next"
                 onSubmitEditing={() => confirmRef.current?.focus()}
-                onFocus={scrollToFocusedInput}
+                onFocus={() => handleFocus("password")}
+                onBlur={() => setFocused(null)}
                 blurOnSubmit={false}
                 error={Boolean(passwordError)}
                 left={<TextInput.Icon icon="lock-outline" />}
@@ -283,38 +359,53 @@ export default function RegisterScreen({ navigation }: Props) {
                     }}
                   />
                 }
-                style={styles.input}
+                style={fieldStyle("password")}
                 outlineStyle={styles.inputOutline}
                 outlineColor="transparent"
                 activeOutlineColor={palette.orange}
               />
 
               {password.length > 0 && !passwordError ? (
-                <View style={styles.strengthRow}>
-                  <View style={styles.strengthBars}>
-                    {[1, 2, 3, 4].map((level) => (
+                <View style={styles.strengthBlock}>
+                  <View style={styles.strengthRow}>
+                    <View style={styles.strengthBars}>
+                      {[1, 2, 3, 4].map((level) => (
+                        <View
+                          key={level}
+                          style={[
+                            styles.strengthSegment,
+                            {
+                              backgroundColor:
+                                level <= strength
+                                  ? STRENGTH_COLORS[strength]
+                                  : palette.mist,
+                            },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                    <Text
+                      style={[
+                        styles.strengthLabel,
+                        { color: STRENGTH_COLORS[strength] },
+                      ]}
+                    >
+                      {STRENGTH_LABELS[strength]}
+                    </Text>
+                  </View>
+                  <View style={styles.reqRow}>
+                    {requirements.map((r) => (
                       <View
-                        key={level}
-                        style={[
-                          styles.strengthSegment,
-                          {
-                            backgroundColor:
-                              level <= strength
-                                ? STRENGTH_COLORS[strength]
-                                : palette.slate,
-                          },
-                        ]}
-                      />
+                        key={r.key}
+                        style={[styles.reqChip, r.ok && styles.reqChipOk]}
+                      >
+                        <Text style={[styles.reqText, r.ok && styles.reqTextOk]}>
+                          {r.ok ? "✓ " : ""}
+                          {r.label}
+                        </Text>
+                      </View>
                     ))}
                   </View>
-                  <Text
-                    style={[
-                      styles.strengthLabel,
-                      { color: STRENGTH_COLORS[strength] },
-                    ]}
-                  >
-                    {STRENGTH_LABELS[strength]}
-                  </Text>
                 </View>
               ) : (
                 <HelperText type="error" visible={Boolean(passwordError)}>
@@ -322,15 +413,17 @@ export default function RegisterScreen({ navigation }: Props) {
                 </HelperText>
               )}
 
+              <Text style={styles.label}>Confirm password</Text>
               <TextInput
                 ref={confirmRef}
-                placeholder="Confirm password"
+                placeholder="Re-enter your password"
+                accessibilityLabel="Confirm password"
                 mode="outlined"
                 value={confirmPassword}
                 onChangeText={(value) => {
                   setConfirmPassword(value);
                   if (confirmError) setConfirmError("");
-                  if (error) setError("");
+                  clearErrors();
                 }}
                 secureTextEntry={!isConfirmVisible}
                 autoCapitalize="none"
@@ -338,9 +431,15 @@ export default function RegisterScreen({ navigation }: Props) {
                 textContentType="newPassword"
                 returnKeyType="go"
                 onSubmitEditing={() => void submit()}
-                onFocus={scrollToFocusedInput}
+                onFocus={() => handleFocus("confirm")}
+                onBlur={() => setFocused(null)}
                 error={Boolean(confirmError)}
-                left={<TextInput.Icon icon="lock-check-outline" />}
+                left={
+                  <TextInput.Icon
+                    icon={passwordsMatch ? "check-circle" : "lock-check-outline"}
+                    color={passwordsMatch ? SUCCESS : undefined}
+                  />
+                }
                 right={
                   <TextInput.Icon
                     icon={isConfirmVisible ? "eye-off-outline" : "eye-outline"}
@@ -353,7 +452,7 @@ export default function RegisterScreen({ navigation }: Props) {
                     }}
                   />
                 }
-                style={styles.input}
+                style={fieldStyle("confirm")}
                 outlineStyle={styles.inputOutline}
                 outlineColor="transparent"
                 activeOutlineColor={palette.orange}
@@ -365,15 +464,31 @@ export default function RegisterScreen({ navigation }: Props) {
               {error ? (
                 <View style={styles.errorBox} accessibilityRole="alert">
                   <Text style={styles.errorTitle}>
-                    Unable to create account
+                    {isDuplicate
+                      ? "Email already in use"
+                      : "Unable to create account"}
                   </Text>
                   <Text style={styles.errorMessage}>{error}</Text>
+                  {isDuplicate ? (
+                    <Pressable
+                      hitSlop={8}
+                      style={styles.errorAction}
+                      onPress={() => {
+                        appLogger.action("button.openLoginFromDuplicateEmail");
+                        navigation.navigate("Login");
+                      }}
+                    >
+                      <Text style={styles.link}>Log in instead</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ) : null}
 
               <Button
                 mode="contained"
                 onPress={() => void submit()}
+                icon={isSubmitting ? undefined : "arrow-right"}
+                loading={isSubmitting}
                 disabled={isSubmitting}
                 contentStyle={styles.buttonContent}
                 style={styles.button}
@@ -381,6 +496,21 @@ export default function RegisterScreen({ navigation }: Props) {
               >
                 {isSubmitting ? "Creating account…" : "Create account"}
               </Button>
+
+              <Text style={styles.terms}>
+                By creating an account you agree to our{" "}
+                <Text
+                  accessibilityRole="link"
+                  style={styles.termsLink}
+                  onPress={() => {
+                    appLogger.action("button.openPrivacyPolicy");
+                    navigation.navigate("PrivacyPolicy");
+                  }}
+                >
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
 
               <View style={styles.switchRow}>
                 <Text style={styles.switchText}>Already have an account? </Text>
@@ -394,23 +524,10 @@ export default function RegisterScreen({ navigation }: Props) {
                   <Text style={styles.link}>Log in</Text>
                 </Pressable>
               </View>
-
-              <Pressable
-                accessibilityRole="link"
-                hitSlop={8}
-                style={styles.privacyRow}
-                onPress={() => {
-                  appLogger.action("button.openPrivacyPolicy");
-                  navigation.navigate("PrivacyPolicy");
-                }}
-              >
-                <Text style={styles.privacyLink}>Privacy Policy</Text>
-              </Pressable>
-            </View>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </ImageBackground>
-
     </SafeAreaView>
   );
 }
@@ -426,7 +543,7 @@ const styles = StyleSheet.create({
 
   hero: {
     flex: 1,
-    minHeight: 220,
+    minHeight: 300,
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -455,17 +572,19 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
+  // The one bold moment: a large, tight headline.
   title: {
     color: "#FFFFFF",
-    fontSize: 34,
+    fontSize: 46,
     fontWeight: "800",
-    lineHeight: 40,
+    lineHeight: 48,
+    letterSpacing: -0.8,
     textShadowColor: "rgba(37,52,63,0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 8,
   },
   subtitle: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     maxWidth: 300,
     color: palette.mist,
     fontSize: 15,
@@ -477,13 +596,40 @@ const styles = StyleSheet.create({
 
   sheet: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    paddingTop: spacing.xl + 20,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
     backgroundColor: palette.white,
   },
   input: { height: 52, backgroundColor: palette.mist },
+  badgeRing: {
+    position: "absolute",
+    top: -32,
+    left: spacing.lg,
+    padding: 5,
+    borderRadius: 40,
+    backgroundColor: palette.white,
+  },
+  badge: { backgroundColor: palette.orange },
+  label: {
+    marginBottom: 6,
+    color: palette.ink,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reqRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  reqChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: palette.mist,
+  },
+  reqChipOk: { backgroundColor: "rgba(46,158,107,0.14)" },
+  reqText: { color: palette.ink, opacity: 0.55, fontSize: 11, fontWeight: "600" },
+  reqTextOk: { color: SUCCESS, opacity: 1 },
+  inputFocused: { backgroundColor: palette.white },
   inputOutline: { borderRadius: FIELD_RADIUS, borderWidth: 1.5 },
+
   errorBox: {
     marginTop: spacing.xs,
     padding: spacing.sm,
@@ -499,13 +645,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  errorAction: { alignSelf: "flex-start", marginTop: spacing.xs },
 
-  strengthRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 32,
-    paddingHorizontal: 4,
-  },
+  strengthBlock: { paddingHorizontal: 4, paddingVertical: 6 },
+  strengthRow: { flexDirection: "row", alignItems: "center" },
   strengthBars: { flex: 1, flexDirection: "row", gap: 6 },
   strengthSegment: { flex: 1, height: 4, borderRadius: 2 },
   strengthLabel: {
@@ -515,25 +658,39 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "right",
   },
+  strengthHint: {
+    marginTop: 6,
+    color: palette.ink,
+    opacity: 0.6,
+    fontSize: 12,
+  },
 
   button: {
     marginTop: spacing.sm,
-    borderRadius: 16,
-    backgroundColor: palette.orange,
+    borderRadius: 18,
+    backgroundColor: palette.ink,
   },
-  buttonContent: { height: 54 },
-  buttonLabel: { color: palette.ink, fontSize: 16, fontWeight: "800" },
+  buttonContent: { height: 58, flexDirection: "row-reverse" },
+  buttonLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+
+  terms: {
+    marginTop: spacing.md,
+    color: palette.ink,
+    opacity: 0.6,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  termsLink: {
+    color: palette.ink,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   switchRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   switchText: { color: palette.ink, opacity: 0.7, fontSize: 13 },
   link: { color: palette.orange, fontSize: 13, fontWeight: "800" },
-  privacyRow: { alignSelf: "center", marginTop: spacing.md },
-  privacyLink: {
-    color: palette.orange,
-    fontSize: 12,
-    textDecorationLine: "underline",
-  },
 });

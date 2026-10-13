@@ -10,7 +10,10 @@ Task Manager supports email/password authentication and per-user task management
 
 - Firebase email/password registration and login
 - Persistent authentication between launches with AsyncStorage
+- Session restore uses a hydrating splash; login and register stay on their screens until auth succeeds
 - Create, edit, delete, and complete tasks
+- Home list updates immediately from the Zustand store; pull-to-refresh syncs from Firestore
+- Tasks are scoped per signed-in user and cleared on logout or account switch
 - Title, description, due date, and low/medium/high priority
 - Combined priority and completion-status filters
 - Client-side due-date sorting to avoid Firestore composite indexes
@@ -41,7 +44,7 @@ Domain (entities, repository interfaces, use cases)
 Data (Firebase repositories, Firestore mappers)
 ```
 
-The domain layer contains no React or Firebase imports. Screens communicate with Zustand stores, stores call domain use cases, use cases depend on repository interfaces, and Firebase implementations live in the data layer.
+The domain layer contains no React or Firebase imports. Screens communicate with Zustand stores, stores call domain use cases, use cases depend on repository interfaces, and Firebase implementations live in the data layer. The task store is the live source for the home UI so in-flight Firestore reads cannot overwrite a create, edit, toggle, or delete.
 
 ## Folder structure
 

@@ -16,14 +16,19 @@ import { appLogger } from '../../core/utils/appLogger';
 export type PriorityFilter = 'all' | Priority;
 export type StatusFilter = 'all' | 'completed' | 'incomplete';
 
+interface FetchTasksOptions {
+  silent?: boolean;
+}
+
 interface TaskState {
   tasks: Task[];
+  loadedUserId: string | null;
   priorityFilter: PriorityFilter;
   statusFilter: StatusFilter;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
-  fetchTasks: (userId: string) => Promise<void>;
+  fetchTasks: (userId: string, options?: FetchTasksOptions) => Promise<void>;
   createTask: (userId: string, task: CreateTaskInput) => Promise<Task>;
   updateTask: (userId: string, taskId: string, changes: UpdateTaskInput) => Promise<void>;
   deleteTask: (userId: string, taskId: string) => Promise<void>;
@@ -33,10 +38,16 @@ interface TaskState {
   resetFilters: () => void;
   getVisibleTasks: () => Task[];
   clearError: () => void;
+  reset: () => void;
 }
 
 let taskRepository: TaskRepository | null = null;
 let latestFetchRequest = 0;
+let mutationGeneration = 0;
+
+const noteMutation = () => {
+  mutationGeneration += 1;
+};
 
 export const configureTaskStore = (repository: TaskRepository): void => {
   taskRepository = repository;
@@ -75,18 +86,34 @@ export const selectVisibleTasks = (
       firstTask.dueDate.getTime() - secondTask.dueDate.getTime(),
     );
 
+const emptyFilters = {
+  priorityFilter: 'all' as PriorityFilter,
+  statusFilter: 'all' as StatusFilter,
+};
+
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
+  loadedUserId: null,
   priorityFilter: 'all',
   statusFilter: 'all',
   isLoading: false,
   isSaving: false,
   error: null,
 
-  fetchTasks: async (userId) => {
+  fetchTasks: async (userId, options) => {
     appLogger.action('tasks.fetch');
     const requestId = ++latestFetchRequest;
-    set({ isLoading: true, error: null });
+    const generationAtStart = mutationGeneration;
+    const isFirstLoad = get().loadedUserId !== userId;
+    const showLoading = isFirstLoad || !options?.silent;
+
+    if (isFirstLoad) {
+      set({ tasks: [], isLoading: true, error: null, loadedUserId: userId });
+    } else if (showLoading) {
+      set({ isLoading: true, error: null });
+    } else {
+      set({ error: null });
+    }
 
     try {
       const tasks = await getTasksUseCase(getRepository(), userId);
@@ -96,7 +123,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       // from bringing deleted or older tasks back into the list.
       if (requestId !== latestFetchRequest) return;
 
-      set({ tasks, isLoading: false });
+      // A create/update/delete/toggle happened while this read was in flight.
+      // Keep the local list instead of rolling the UI back to stale server data.
+      if (generationAtStart !== mutationGeneration) {
+        set({ isLoading: false, loadedUserId: userId });
+        return;
+      }
+
+      set({ tasks, isLoading: false, loadedUserId: userId });
       appLogger.success('tasks.fetch', { count: tasks.length });
     } catch (error) {
       if (requestId === latestFetchRequest) {
@@ -112,7 +146,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     try {
       const createdTask = await createTaskUseCase(getRepository(), userId, task);
-      set((state) => ({ tasks: [...state.tasks, createdTask], isSaving: false }));
+      noteMutation();
+      set((state) => ({
+        tasks: [...state.tasks, createdTask],
+        isSaving: false,
+        loadedUserId: userId,
+      }));
       appLogger.success('tasks.create');
       return createdTask;
     } catch (error) {
@@ -128,6 +167,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     try {
       await updateTaskUseCase(getRepository(), userId, taskId, changes);
+      noteMutation();
       set((state) => ({
         tasks: state.tasks.map((task) =>
           task.id === taskId ? { ...task, ...changes } : task,
@@ -147,6 +187,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const task = get().tasks.find((item) => item.id === taskId);
     if (!task) return;
 
+    noteMutation();
     set((state) => ({
       tasks: state.tasks.filter((item) => item.id !== taskId),
       error: null,
@@ -181,6 +222,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     if (!task) return;
 
     const isCompleted = !task.isCompleted;
+    noteMutation();
     set({
       tasks: previousTasks.map((item) =>
         item.id === taskId ? { ...item, isCompleted } : item,
@@ -206,6 +248,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return selectVisibleTasks(tasks, priorityFilter, statusFilter);
   },
   clearError: () => set({ error: null }),
+  reset: () => {
+    latestFetchRequest += 1;
+    mutationGeneration += 1;
+    set({
+      tasks: [],
+      loadedUserId: null,
+      isLoading: false,
+      isSaving: false,
+      error: null,
+      ...emptyFilters,
+    });
+  },
 }));
 
 export const taskStore = useTaskStore;

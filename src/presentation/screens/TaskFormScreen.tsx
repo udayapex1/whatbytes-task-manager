@@ -7,7 +7,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Button,
@@ -43,7 +43,7 @@ const isTimeoutError = (error: unknown): boolean =>
 
 export default function TaskFormScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const taskId = route.params?.taskId;
+  const taskId = route.params?.taskId ?? null;
   const user = useAuthStore((state) => state.user);
   const tasks = useTaskStore((state) => state.tasks);
   const isSaving = useTaskStore((state) => state.isSaving);
@@ -69,15 +69,31 @@ export default function TaskFormScreen({ navigation, route }: Props) {
   const isEditing = Boolean(taskId);
 
   useEffect(() => {
+    if (taskId) return;
+
+    setTitle('');
+    setDescription('');
+    setDueDate(new Date());
+    setPriority('medium');
+    setTitleError('');
+    setError('');
+  }, [taskId]);
+
+  useEffect(() => {
     if (!existingTask) return;
 
     setTitle(existingTask.title);
     setDescription(existingTask.description);
     setDueDate(existingTask.dueDate);
     setPriority(existingTask.priority);
-  }, [existingTask]);
+  }, [existingTask?.id]);
 
-  const handleDateChange = (_event: DateTimePickerChangeEvent, selectedDate: Date) => {
+  const handleDateChange = (event: { type?: string }, selectedDate?: Date) => {
+    if (event.type === 'dismissed' || !selectedDate) {
+      if (Platform.OS !== 'ios') setShowDatePicker(false);
+      return;
+    }
+
     appLogger.action('taskForm.dateChanged', { selected: true });
     setDueDate(selectedDate);
     if (Platform.OS !== 'ios') setShowDatePicker(false);
@@ -224,7 +240,7 @@ export default function TaskFormScreen({ navigation, route }: Props) {
               value={dueDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onValueChange={handleDateChange}
+              onChange={handleDateChange}
               onDismiss={handleDateDismiss}
               minimumDate={new Date(2000, 0, 1)}
             />
@@ -276,9 +292,18 @@ export default function TaskFormScreen({ navigation, route }: Props) {
         active="taskForm"
         onTasksPress={() => {
           appLogger.action('button.openTasks');
-          navigation.navigate('Tasks');
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Tasks');
+          }
         }}
-        onNewTaskPress={() => appLogger.action('button.openNewTask')}
+        onNewTaskPress={() => {
+          appLogger.action('button.openNewTask');
+          if (taskId) {
+            navigation.navigate('TaskForm', { taskId: null });
+          }
+        }}
       />
 
       <Snackbar
