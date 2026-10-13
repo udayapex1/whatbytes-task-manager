@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Image,
@@ -8,41 +8,71 @@ import {
   ScrollView,
   StyleSheet,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, HelperText, Snackbar, Text, TextInput } from 'react-native-paper';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useAuthStore } from '../store/authStore';
-import type { AuthStackParamList } from '../navigation/AuthStack';
-import { getAuthErrorMessage } from '../../core/utils/authErrors';
-import { spacing } from '../../core/theme/theme';
-import { appLogger } from '../../core/utils/appLogger';
+  TextInput as RNTextInput,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import {
+  Button,
+  HelperText,
+  Snackbar,
+  Text,
+  TextInput,
+} from "react-native-paper";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useAuthStore } from "../store/authStore";
+import type { AuthStackParamList } from "../navigation/AuthStack";
+import { getAuthErrorMessage } from "../../core/utils/authErrors";
+import { spacing } from "../../core/theme/theme";
+import { appLogger } from "../../core/utils/appLogger";
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
 const isValidEmail = (email: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+// Dependency-free vertical gradient: transparent at top -> dark at bottom.
+const SCRIM_BANDS = 16;
+const scrimOpacity = (i: number) => Math.pow(i / (SCRIM_BANDS - 1), 1.4) * 0.88;
+
 export default function LoginScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const login = useAuthStore((state) => state.login);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [error, setError] = useState('');
+  const passwordRef = useRef<RNTextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [error, setError] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // No header (and no header buttons like settings) before login.
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
+
+  const scrollToFocusedInput = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
+  };
+
   const submit = async () => {
-    appLogger.action('button.login');
-    const nextEmailError = isValidEmail(email) ? '' : 'Enter a valid email address.';
-    const nextPasswordError = password.length >= 6 ? '' : 'Password must be at least 6 characters.';
+    if (isSubmitting) return;
+    appLogger.action("button.login");
+    const nextEmailError = isValidEmail(email)
+      ? ""
+      : "Enter a valid email address.";
+    const nextPasswordError =
+      password.length >= 6 ? "" : "Password must be at least 6 characters.";
 
     setEmailError(nextEmailError);
     setPasswordError(nextPasswordError);
 
     if (nextEmailError || nextPasswordError) {
-      appLogger.action('login.validationFailed', {
+      appLogger.action("login.validationFailed", {
         email: Boolean(nextEmailError),
         password: Boolean(nextPasswordError),
       });
@@ -50,121 +80,191 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     setIsSubmitting(true);
-    setError('');
+    setError("");
 
     try {
       await login(email.trim(), password);
-      appLogger.success('login.submit');
+      appLogger.success("login.submit");
     } catch (authError) {
       setError(getAuthErrorMessage(authError));
-      appLogger.failure('login.submit', authError);
+      appLogger.failure("login.submit", authError);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <ImageBackground
-        source={require('../../../assets/banner.jpeg')}
+        source={require("../../../assets/banner.jpeg")}
         style={styles.background}
         imageStyle={styles.backgroundImage}
       >
-        <View style={styles.bannerHeader}>
-          <Text style={styles.bannerTitle}>Log in</Text>
-        </View>
-
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={insets.top}
           style={styles.flex}
         >
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
             showsVerticalScrollIndicator={false}
+            bounces={false}
           >
-            <View style={styles.formCard}>
-              <Image
-                source={require('../../../assets/files/logo-light.png')}
-                style={styles.logo}
-                accessibilityLabel="TaskFlow logo"
-              />
-              <Text style={styles.brand}>TaskFlow</Text>
+            <View style={styles.hero}>
+              <View style={styles.scrim} pointerEvents="none">
+                {Array.from({ length: SCRIM_BANDS }, (_, i) => (
+                  <View
+                    key={i}
+                    style={{
+                      flex: 1,
+                      backgroundColor: `rgba(5,5,5,${scrimOpacity(i)})`,
+                    }}
+                  />
+                ))}
+              </View>
 
-            <TextInput
-              placeholder="Email"
-              mode="flat"
-              value={email}
-              onChangeText={(value) => {
-                setEmail(value);
-                if (emailError) setEmailError('');
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              error={Boolean(emailError)}
-              style={styles.input}
-              underlineColor="transparent"
-              activeUnderlineColor="transparent"
-            />
-            <HelperText type="error" visible={Boolean(emailError)}>
-              {emailError}
-            </HelperText>
+              <View style={styles.brandRow}>
+                <View style={styles.logoChip}>
+                  <Image
+                    source={require("../../../assets/files/logo-light.png")}
+                    style={styles.logo}
+                    accessibilityLabel="TaskFlow logo"
+                  />
+                </View>
+                <Text style={styles.brand}>TaskFlow</Text>
+              </View>
 
-            <View>
+              <View>
+                <Text style={styles.title}>Welcome back</Text>
+                <Text style={styles.subtitle}>
+                  Log in to pick up where you left off.
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.sheet,
+                { paddingBottom: spacing.lg + insets.bottom },
+              ]}
+            >
               <TextInput
+                placeholder="Email address"
+                mode="outlined"
+                value={email}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  if (emailError) setEmailError("");
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username"
+                textContentType="username"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                onFocus={scrollToFocusedInput}
+                blurOnSubmit={false}
+                error={Boolean(emailError)}
+                left={<TextInput.Icon icon="email-outline" />}
+                style={styles.input}
+                outlineStyle={styles.inputOutline}
+                outlineColor="transparent"
+                activeOutlineColor="#111111"
+              />
+              <HelperText type="error" visible={Boolean(emailError)}>
+                {emailError}
+              </HelperText>
+
+              <TextInput
+                ref={passwordRef}
                 placeholder="Password"
-                mode="flat"
+                mode="outlined"
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value);
-                  if (passwordError) setPasswordError('');
+                  if (passwordError) setPasswordError("");
                 }}
                 secureTextEntry={!isPasswordVisible}
-                autoComplete="password"
+                autoCapitalize="none"
+                autoComplete="current-password"
+                textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={() => void submit()}
+                onFocus={scrollToFocusedInput}
                 error={Boolean(passwordError)}
+                left={<TextInput.Icon icon="lock-outline" />}
+                right={
+                  <TextInput.Icon
+                    icon={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
+                    accessibilityLabel={
+                      isPasswordVisible ? "Hide password" : "Show password"
+                    }
+                    onPress={() => {
+                      appLogger.action("button.toggleLoginPassword");
+                      setIsPasswordVisible((visible) => !visible);
+                    }}
+                  />
+                }
                 style={styles.input}
-                underlineColor="transparent"
-                activeUnderlineColor="transparent"
+                outlineStyle={styles.inputOutline}
+                outlineColor="transparent"
+                activeOutlineColor="#111111"
               />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
-                onPress={() => {
-                  appLogger.action('button.toggleLoginPassword');
-                  setIsPasswordVisible((visible) => !visible);
-                }}
-                style={styles.passwordToggle}
-              >
-              <Text style={styles.passwordToggleText}>{isPasswordVisible ? '◉' : '◌'}</Text>
-              </Pressable>
-            </View>
-            <HelperText type="error" visible={Boolean(passwordError)}>
-              {passwordError}
-            </HelperText>
+              <HelperText type="error" visible={Boolean(passwordError)}>
+                {passwordError}
+              </HelperText>
 
-            <Button
-              mode="contained"
-              onPress={() => void submit()}
-              loading={isSubmitting}
-              disabled={isSubmitting}
-              contentStyle={styles.buttonContent}
-              style={styles.button}
-              labelStyle={styles.buttonLabel}
-            >
-              Log in
-            </Button>
+              <Pressable
+                style={styles.forgotRow}
+                hitSlop={8}
+                onPress={() => {
+                  appLogger.action("button.openForgotPassword");
+                  navigation.navigate("ForgotPassword");
+                }}
+              >
+                <Text style={styles.forgot}>Forgot password?</Text>
+              </Pressable>
+
+              <Button
+                mode="contained"
+                onPress={() => void submit()}
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                contentStyle={styles.buttonContent}
+                style={styles.button}
+                labelStyle={styles.buttonLabel}
+              >
+                Log in
+              </Button>
+
               <View style={styles.switchRow}>
-                <Text style={styles.switchText}>Don't have an account? </Text>
+                <Text style={styles.switchText}>New to TaskFlow? </Text>
                 <Pressable
+                  hitSlop={8}
                   onPress={() => {
-                    appLogger.action('button.openRegister');
-                    navigation.navigate('Register');
+                    appLogger.action("button.openRegister");
+                    navigation.navigate("Register");
                   }}
                 >
-                  <Text style={styles.link}>Sign up here</Text>
+                  <Text style={styles.link}>Create account</Text>
                 </Pressable>
               </View>
+
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={8}
+                style={styles.privacyRow}
+                onPress={() => {
+                  appLogger.action("button.openPrivacyPolicy");
+                  navigation.navigate("PrivacyPolicy");
+                }}
+              >
+                <Text style={styles.privacyLink}>Privacy Policy</Text>
+              </Pressable>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -173,8 +273,8 @@ export default function LoginScreen({ navigation }: Props) {
       <Snackbar
         visible={Boolean(error)}
         onDismiss={() => {
-          appLogger.action('button.dismissLoginError');
-          setError('');
+          appLogger.action("button.dismissLoginError");
+          setError("");
         }}
         duration={4500}
       >
@@ -184,37 +284,95 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
+const FIELD_RADIUS = 14;
+
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#050505' },
+  safeArea: { flex: 1, backgroundColor: "#050505" },
   background: { flex: 1 },
-  backgroundImage: { resizeMode: 'cover' },
+  backgroundImage: { resizeMode: "cover" },
   flex: { flex: 1 },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: spacing.md,
+  content: { flexGrow: 1 },
+
+  hero: {
+    flex: 1,
+    minHeight: 280,
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xl,
   },
-  bannerHeader: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl },
-  bannerTitle: { color: '#FFFFFF', fontSize: 34, fontWeight: '800' },
-  formCard: { padding: spacing.lg, borderRadius: 30, backgroundColor: '#FFFFFF' },
-  logo: {
-    alignSelf: 'center',
-    width: 58,
-    height: 58,
-    marginBottom: spacing.xs,
+  scrim: { ...StyleSheet.absoluteFillObject },
+  brandRow: { flexDirection: "row", alignItems: "center" },
+  logoChip: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(5,5,5,0.35)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  logo: { width: 28, height: 28, borderRadius: 8, overflow: "hidden" },
+  brand: {
+    marginLeft: 12,
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  title: {
+    color: "#FFFFFF",
+    fontSize: 36,
+    fontWeight: "800",
+    lineHeight: 42,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
+  },
+  subtitle: {
+    marginTop: spacing.xs,
+    maxWidth: 300,
+    color: "#EDEDF2",
+    fontSize: 15,
+    lineHeight: 22,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+
+  sheet: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: "#FFFFFF",
+  },
+  input: { height: 52, backgroundColor: "#F2F2F4" },
+  inputOutline: { borderRadius: FIELD_RADIUS, borderWidth: 1.5 },
+  forgotRow: { alignSelf: "flex-end", marginTop: -spacing.xs },
+  forgot: { color: "#111111", fontSize: 13, fontWeight: "700" },
+  button: {
+    marginTop: spacing.md,
     borderRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: "#050505",
   },
-  brand: { marginBottom: spacing.md, textAlign: 'center', color: '#E65062', fontSize: 20, fontWeight: '800' },
-  input: { height: 48, marginTop: spacing.sm, paddingHorizontal: spacing.md, borderRadius: 24, backgroundColor: '#F0F0F0' },
-  passwordToggle: { position: 'absolute', right: 18, top: 22 },
-  passwordToggleText: { color: '#686868', fontSize: 16 },
-  button: { marginTop: spacing.lg, borderRadius: 24, backgroundColor: '#050505' },
   buttonContent: { height: 54 },
-  buttonLabel: { color: '#FFFFFF', fontWeight: '800' },
-  switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
-  switchText: { color: '#555555', fontSize: 12 },
-  link: { color: '#111111', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' },
+  buttonLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: spacing.lg,
+  },
+  switchText: { color: "#6B6B76", fontSize: 13 },
+  link: { color: "#111111", fontSize: 13, fontWeight: "800" },
+  privacyRow: { alignSelf: "center", marginTop: spacing.md },
+  privacyLink: {
+    color: "#6B6B76",
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
 });
