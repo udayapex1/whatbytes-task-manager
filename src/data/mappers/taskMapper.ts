@@ -4,6 +4,7 @@ import { priorities, type Priority } from '../../core/constants/priorities';
 import type { CreateTaskInput, Task, UpdateTaskInput } from '../../domain/entities/Task';
 
 export interface FirestoreTaskData {
+  userId: string;
   title: string;
   description: string;
   dueDate: Timestamp;
@@ -42,7 +43,9 @@ export const taskFromSnapshot = (
 
 export const taskToFirestoreData = (
   task: CreateTaskInput & Pick<Task, 'createdAt'>,
+  userId: string,
 ): FirestoreTaskData => ({
+  userId,
   title: task.title,
   description: task.description,
   dueDate: FirestoreTimestamp.fromDate(task.dueDate),

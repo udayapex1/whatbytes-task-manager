@@ -58,17 +58,19 @@ src/
 
 ## Firestore data model
 
-Each signed-in user owns a private task collection:
+Each signed-in user owns task documents in the top-level `tasks` collection. The
+explicit `userId` field makes ownership visible to queries, migrations, and
+future reporting tools:
 
 ```text
-users/{uid}/tasks/{taskId}
+tasks/{taskId}
 ```
 
 Each task contains:
 
 ```text
 {
-  id: string,
+  userId: string,
   title: string,
   description: string,
   dueDate: Timestamp,
@@ -92,9 +94,26 @@ service cloud.firestore {
     match /users/{uid}/tasks/{taskId} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    match /tasks/{taskId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
   }
 }
 ```
+
+The legacy nested path remains temporarily readable and writable so the app can
+copy existing tasks into the new collection on the user's next fetch. After
+all existing users have opened the updated app and migration is verified, the
+legacy rule and migration code can be removed.
 
 ## Setup for Expo Go
 
@@ -120,13 +139,30 @@ service cloud.firestore {
    - Create a Cloud Firestore database.
    - Deploy `firestore.rules` or copy its rules into the Firestore Rules tab.
 
-4. Start Expo with a clean cache:
+4. For EAS APK builds, add all six `EXPO_PUBLIC_FIREBASE_*` values to the
+   matching EAS environment (`preview` for internal APKs, `production` for
+   production builds). The local `.env` file is not automatically available to
+   a cloud EAS build.
+
+   ```bash
+   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_API_KEY --value "..." --visibility plaintext
+   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN --value "..." --visibility plaintext
+   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_PROJECT_ID --value "..." --visibility plaintext
+   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET --value "..." --visibility plaintext
+   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID --value "..." --visibility plaintext
+   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_APP_ID --value "..." --visibility plaintext
+   ```
+
+   Repeat the commands with `--environment preview` if building with the
+   `preview` profile.
+
+5. Start Expo with a clean cache:
 
    ```bash
    npx expo start --clear
    ```
 
-5. Scan the QR code with Expo Go on a device on the same network, or press `a`/`i` for an available emulator/simulator.
+6. Scan the QR code with Expo Go on a device on the same network, or press `a`/`i` for an available emulator/simulator.
 
 ## Known limitations
 
