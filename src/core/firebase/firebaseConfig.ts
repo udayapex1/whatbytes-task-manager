@@ -26,23 +26,12 @@ const auth = appAlreadyInitialized
 
 // React Native/Expo networks and some proxies can buffer Firestore WebChannel
 // traffic indefinitely. Long polling makes the request/response transport
-// reliable in those environments. The Firebase app can already exist during
-// Expo Fast Refresh even when Firestore itself has not been initialized yet,
-// so do not use appAlreadyInitialized as a proxy for Firestore initialization.
-const db = (() => {
-  try {
-    return initializeFirestore(app, {
+// reliable in those environments. During Fast Refresh, reuse the existing
+// Firestore instance instead of initializing it a second time.
+const db = appAlreadyInitialized
+  ? getFirestore(app)
+  : initializeFirestore(app, {
       experimentalForceLongPolling: true,
     });
-  } catch (error) {
-    const code =
-      typeof error === 'object' && error !== null && 'code' in error
-        ? error.code
-        : undefined;
-
-    if (code === 'failed-precondition') return getFirestore(app);
-    throw error;
-  }
-})();
 
 export { auth, db };
