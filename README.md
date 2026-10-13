@@ -172,13 +172,19 @@ legacy rule and migration code can be removed.
 
 ## Screenshots
 
-Add final Expo Go screenshots here before submission:
+## App screenshots
 
-```text
-![Login screen](screenshots/login.png)
-![Task list](screenshots/task-list.png)
-![Task form](screenshots/task-form.png)
-```
+![App screenshot 1](<assets/app _screenshots/ss1.jpeg>)
+
+![App screenshot 2](<assets/app _screenshots/ss2.jpeg>)
+
+![App screenshot 3](<assets/app _screenshots/ss3.jpeg>)
+
+![App screenshot 4](<assets/app _screenshots/ss4.jpeg>)
+
+![App screenshot 5](<assets/app _screenshots/ss5.jpeg>)
+
+![App screenshot 6](<assets/app _screenshots/ss6.jpeg>)
 
 ## Submission notes
 
