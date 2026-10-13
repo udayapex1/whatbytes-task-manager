@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -71,9 +72,11 @@ export default function LoginScreen({ navigation }: Props) {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.logo}>
-            <Text style={styles.logoCheck}>✓</Text>
-          </View>
+          <Image
+            source={require('../../../assets/files/logo-light.png')}
+            style={styles.logo}
+            accessibilityLabel="TaskFlow logo"
+          />
           <Text variant="headlineMedium" style={styles.title}>Welcome back!</Text>
           <Text variant="bodyMedium" style={styles.subtitle}>
             Stay on top of your work, one task at a time.
@@ -180,20 +183,17 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
     width: 92,
     height: 92,
     marginBottom: spacing.lg,
     borderRadius: 24,
-    backgroundColor: '#6C63FF',
+    overflow: 'hidden',
     shadowColor: '#6C63FF',
     shadowOpacity: 0.24,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
     elevation: 8,
   },
-  logoCheck: { color: '#FFFFFF', fontSize: 58, fontWeight: '800', lineHeight: 68 },
   title: { textAlign: 'center', color: '#2D3250', fontWeight: '800' },
   subtitle: { marginTop: spacing.sm, textAlign: 'center', color: '#73788D' },
   form: { marginTop: spacing.xl },
