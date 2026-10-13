@@ -144,7 +144,10 @@ export default function LoginScreen({ navigation }: Props) {
       const message = getAuthErrorMessage(authError);
       setError(message);
       setAlertMessage(message);
-      appLogger.failure("login.submit", authError);
+      // Release builds need the Firebase code in logcat to distinguish network,
+      // project configuration, provider, and credential failures. Never log
+      // the entered email or password.
+      appLogger.diagnosticFailure("login.submit", authError);
     } finally {
       setIsSubmitting(false);
     }

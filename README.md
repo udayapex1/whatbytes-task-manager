@@ -139,22 +139,37 @@ legacy rule and migration code can be removed.
    - Create a Cloud Firestore database.
    - Deploy `firestore.rules` or copy its rules into the Firestore Rules tab.
 
-4. For EAS APK builds, add all six `EXPO_PUBLIC_FIREBASE_*` values to the
-   matching EAS environment (`preview` for internal APKs, `production` for
-   production builds). The local `.env` file is not automatically available to
-   a cloud EAS build.
+4. For the internal Android APK, add all six `EXPO_PUBLIC_FIREBASE_*` values
+   to the EAS `preview` environment. The local `.env` file is not automatically
+   available to a cloud EAS build. Use the Firebase Web app configuration from
+   Firebase Console → Project settings → General; these client config values
+   are embedded in the app bundle.
 
    ```bash
-   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_API_KEY --value "..." --visibility plaintext
-   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN --value "..." --visibility plaintext
-   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_PROJECT_ID --value "..." --visibility plaintext
-   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET --value "..." --visibility plaintext
-   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID --value "..." --visibility plaintext
-   eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_APP_ID --value "..." --visibility plaintext
+   eas env:set --environment preview --name EXPO_PUBLIC_FIREBASE_API_KEY --value "PASTE_FIREBASE_VALUE" --visibility plaintext
+   eas env:set --environment preview --name EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN --value "PASTE_FIREBASE_VALUE" --visibility plaintext
+   eas env:set --environment preview --name EXPO_PUBLIC_FIREBASE_PROJECT_ID --value "PASTE_FIREBASE_VALUE" --visibility plaintext
+   eas env:set --environment preview --name EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET --value "PASTE_FIREBASE_VALUE" --visibility plaintext
+   eas env:set --environment preview --name EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID --value "PASTE_FIREBASE_VALUE" --visibility plaintext
+   eas env:set --environment preview --name EXPO_PUBLIC_FIREBASE_APP_ID --value "PASTE_FIREBASE_VALUE" --visibility plaintext
    ```
 
-   Repeat the commands with `--environment preview` if building with the
-   `preview` profile.
+   Verify the remote environment without displaying values:
+
+   ```bash
+   eas env:exec preview 'node scripts/validateFirebaseEnv.js --compare-local'
+   ```
+
+   The command should report that all six variables are present and match the
+   local `.env`, without printing values. The build also runs the presence check
+   before installing dependencies and fails with missing variable names if
+   configuration is incomplete.
+
+   Build the standalone Android APK:
+
+   ```bash
+   eas build --platform android --profile preview
+   ```
 
 5. Start Expo with a clean cache:
 

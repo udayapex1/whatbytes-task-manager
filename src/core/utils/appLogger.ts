@@ -34,4 +34,7 @@ export const appLogger = {
     write('info', `${action}.success`, details),
   failure: (action: string, error: unknown): void =>
     write('warn', `${action}.failure`, { code: getErrorCode(error) }),
+  diagnosticFailure: (action: string, error: unknown): void => {
+    console.warn(`[TaskFlow] ${action}.failure`, { code: getErrorCode(error) });
+  },
 };

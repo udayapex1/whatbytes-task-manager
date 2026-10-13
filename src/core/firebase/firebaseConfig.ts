@@ -5,13 +5,34 @@ import { getAuth, initializeAuth } from 'firebase/auth';
 import { getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 
+const firebaseEnvironment = {
+  EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
+    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+};
+
+const missingFirebaseVariables = Object.entries(firebaseEnvironment)
+  .filter(([, value]) => typeof value !== 'string' || value.trim().length === 0)
+  .map(([name]) => name);
+
+if (missingFirebaseVariables.length > 0) {
+  throw new Error(
+    `Firebase configuration is incomplete. Missing: ${missingFirebaseVariables.join(', ')}. ` +
+      'Add these values to the EAS environment selected by this build profile, then rebuild.',
+  );
+}
+
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  apiKey: firebaseEnvironment.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: firebaseEnvironment.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: firebaseEnvironment.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: firebaseEnvironment.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: firebaseEnvironment.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: firebaseEnvironment.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
 const appAlreadyInitialized = getApps().length > 0;
