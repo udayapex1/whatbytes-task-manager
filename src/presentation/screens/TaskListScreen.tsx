@@ -10,6 +10,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FAB, IconButton, Snackbar, Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { formatToday } from '../../core/utils/dateUtils';
+import { appLogger } from '../../core/utils/appLogger';
 import EmptyState from '../components/EmptyState';
 import FilterBar from '../components/FilterBar';
 import LoadingView from '../components/LoadingView';
@@ -56,6 +57,7 @@ export default function TaskListScreen({ navigation }: Props) {
   }, [storeError]);
 
   const refresh = async () => {
+    appLogger.action('button.refreshTasks');
     if (!user) return;
     setRefreshing(true);
     await fetchTasks(user.id);
@@ -63,27 +65,36 @@ export default function TaskListScreen({ navigation }: Props) {
   };
 
   const handleToggle = async (taskId: string) => {
+    appLogger.action('button.toggleTask');
     if (!user) return;
 
     try {
       await toggleTaskStatus(user.id, taskId);
     } catch {
+      appLogger.action('taskList.toggleFailed');
       setMessage('Could not update that task. Please try again.');
     }
   };
 
   const handleDelete = (taskId: string, title: string) => {
+    appLogger.action('button.deleteTask');
     Alert.alert(
       'Delete task?',
       `“${title}” will be permanently removed.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => appLogger.action('button.cancelDeleteTask'),
+        },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
+            appLogger.action('button.confirmDeleteTask');
             if (!user) return;
             void deleteTask(user.id, taskId).catch(() => {
+              appLogger.action('taskList.deleteFailed');
               setMessage('Could not delete that task. Please try again.');
             });
           },
@@ -93,13 +104,22 @@ export default function TaskListScreen({ navigation }: Props) {
   };
 
   const handleLogout = () => {
+    appLogger.action('button.logout');
     Alert.alert('Log out?', 'You can sign back in any time.', [
-      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+        onPress: () => appLogger.action('button.cancelLogout'),
+      },
       {
         text: 'Log out',
         style: 'destructive',
         onPress: () => {
-          void logout().catch(() => setMessage('Could not log out. Please try again.'));
+          appLogger.action('button.confirmLogout');
+          void logout().catch((error) => {
+            appLogger.failure('auth.logout', error);
+            setMessage('Could not log out. Please try again.');
+          });
         },
       },
     ]);
@@ -139,7 +159,10 @@ export default function TaskListScreen({ navigation }: Props) {
           renderItem={({ item }) => (
             <TaskItem
               task={item}
-              onPress={() => navigation.navigate('TaskForm', { taskId: item.id })}
+              onPress={() => {
+                appLogger.action('button.editTask');
+                navigation.navigate('TaskForm', { taskId: item.id });
+              }}
               onToggle={() => void handleToggle(item.id)}
               onDelete={() => handleDelete(item.id, item.title)}
             />
@@ -152,7 +175,10 @@ export default function TaskListScreen({ navigation }: Props) {
             <EmptyState
               filtered={filtersAreActive || tasks.length > 0}
               onClearFilters={resetFilters}
-              onAddTask={() => navigation.navigate('TaskForm')}
+              onAddTask={() => {
+                appLogger.action('button.addTaskFromEmptyState');
+                navigation.navigate('TaskForm');
+              }}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -161,7 +187,10 @@ export default function TaskListScreen({ navigation }: Props) {
 
       <FAB
         label="+"
-        onPress={() => navigation.navigate('TaskForm')}
+        onPress={() => {
+          appLogger.action('button.addTask');
+          navigation.navigate('TaskForm');
+        }}
         style={[styles.fab, { bottom: insets.bottom + 20 }]}
         color="#FFFFFF"
         customSize={58}
@@ -171,6 +200,7 @@ export default function TaskListScreen({ navigation }: Props) {
       <Snackbar
         visible={Boolean(message)}
         onDismiss={() => {
+          appLogger.action('button.dismissMessage');
           setMessage('');
           clearTaskError();
         }}

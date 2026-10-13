@@ -14,6 +14,7 @@ import { useAuthStore } from '../store/authStore';
 import type { AuthStackParamList } from '../navigation/AuthStack';
 import { getAuthErrorMessage } from '../../core/utils/authErrors';
 import { spacing } from '../../core/theme/theme';
+import { appLogger } from '../../core/utils/appLogger';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -31,21 +32,30 @@ export default function LoginScreen({ navigation }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submit = async () => {
+    appLogger.action('button.login');
     const nextEmailError = isValidEmail(email) ? '' : 'Enter a valid email address.';
     const nextPasswordError = password.length >= 6 ? '' : 'Password must be at least 6 characters.';
 
     setEmailError(nextEmailError);
     setPasswordError(nextPasswordError);
 
-    if (nextEmailError || nextPasswordError) return;
+    if (nextEmailError || nextPasswordError) {
+      appLogger.action('login.validationFailed', {
+        email: Boolean(nextEmailError),
+        password: Boolean(nextPasswordError),
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     setError('');
 
     try {
       await login(email.trim(), password);
+      appLogger.success('login.submit');
     } catch (authError) {
       setError(getAuthErrorMessage(authError));
+      appLogger.failure('login.submit', authError);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +117,10 @@ export default function LoginScreen({ navigation }: Props) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
-                onPress={() => setIsPasswordVisible((visible) => !visible)}
+                onPress={() => {
+                  appLogger.action('button.toggleLoginPassword');
+                  setIsPasswordVisible((visible) => !visible);
+                }}
                 style={styles.passwordToggle}
               >
                 <Text style={styles.passwordToggleText}>{isPasswordVisible ? 'Hide' : 'Show'}</Text>
@@ -131,14 +144,26 @@ export default function LoginScreen({ navigation }: Props) {
 
           <View style={styles.switchRow}>
             <Text>Don't have an account? </Text>
-            <Pressable onPress={() => navigation.navigate('Register')}>
+            <Pressable
+              onPress={() => {
+                appLogger.action('button.openRegister');
+                navigation.navigate('Register');
+              }}
+            >
               <Text style={styles.link}>Get started</Text>
             </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Snackbar visible={Boolean(error)} onDismiss={() => setError('')} duration={4500}>
+      <Snackbar
+        visible={Boolean(error)}
+        onDismiss={() => {
+          appLogger.action('button.dismissLoginError');
+          setError('');
+        }}
+        duration={4500}
+      >
         {error}
       </Snackbar>
     </SafeAreaView>

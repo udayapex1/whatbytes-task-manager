@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Card, Text } from 'react-native-paper';
 import { formatDate, isOverdue } from '../../core/utils/dateUtils';
+import { appLogger } from '../../core/utils/appLogger';
 import type { Task } from '../../domain/entities/Task';
 import PriorityChip from './PriorityChip';
 
@@ -15,13 +16,23 @@ export default function TaskItem({ task, onPress, onToggle, onDelete }: Props) {
   const overdue = !task.isCompleted && isOverdue(task.dueDate);
 
   return (
-    <Card mode="elevated" style={styles.card} onPress={onPress}>
+    <Card
+      mode="elevated"
+      style={styles.card}
+      onPress={() => {
+        appLogger.action('button.openTask');
+        onPress();
+      }}
+    >
       <Card.Content style={styles.content}>
         <Pressable
           accessibilityRole="checkbox"
           accessibilityState={{ checked: task.isCompleted }}
           accessibilityLabel={`Mark ${task.title} ${task.isCompleted ? 'incomplete' : 'complete'}`}
-          onPress={onToggle}
+          onPress={() => {
+            appLogger.action('button.toggleTask');
+            onToggle();
+          }}
           style={[styles.checkbox, task.isCompleted && styles.checked]}
         >
           {task.isCompleted ? <Text style={styles.checkmark}>✓</Text> : null}
@@ -47,7 +58,10 @@ export default function TaskItem({ task, onPress, onToggle, onDelete }: Props) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Delete ${task.title}`}
-            onPress={onDelete}
+            onPress={() => {
+              appLogger.action('button.deleteTask');
+              onDelete();
+            }}
             hitSlop={8}
             style={styles.deleteButton}
           >

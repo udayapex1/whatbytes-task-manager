@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
+import { appLogger } from '../../core/utils/appLogger';
 
 interface Props {
   filtered: boolean;
@@ -20,9 +21,26 @@ export default function EmptyState({ filtered, onClearFilters, onAddTask }: Prop
         {filtered ? 'Try adjusting your filters to see more tasks.' : 'Tap + to add your first task.'}
       </Text>
       {filtered ? (
-        <Button mode="text" onPress={onClearFilters}>Clear filters</Button>
+        <Button
+          mode="text"
+          onPress={() => {
+            appLogger.action('button.clearFilters');
+            onClearFilters();
+          }}
+        >
+          Clear filters
+        </Button>
       ) : (
-        <Button mode="contained" onPress={onAddTask} style={styles.button}>Add a task</Button>
+        <Button
+          mode="contained"
+          onPress={() => {
+            appLogger.action('button.addTaskFromEmptyState');
+            onAddTask();
+          }}
+          style={styles.button}
+        >
+          Add a task
+        </Button>
       )}
     </View>
   );

@@ -5,13 +5,17 @@ import { Appbar, Text } from 'react-native-paper';
 import { useAuthStore } from '../store/authStore';
 import AuthStack from './AuthStack';
 import AppStack from './AppStack';
+import { appLogger } from '../../core/utils/appLogger';
 
 export default function RootNavigator() {
   const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
   const initialize = useAuthStore((state) => state.initialize);
 
-  useEffect(() => initialize(), [initialize]);
+  useEffect(() => {
+    appLogger.action('navigation.initializeAuth');
+    return initialize();
+  }, [initialize]);
 
   if (isLoading) {
     return (

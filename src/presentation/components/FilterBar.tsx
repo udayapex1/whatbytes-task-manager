@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Chip, Text } from 'react-native-paper';
 import { priorityLabels, priorities, type Priority } from '../../core/constants/priorities';
+import { appLogger } from '../../core/utils/appLogger';
 import type { PriorityFilter, StatusFilter } from '../store/taskStore';
 
 interface Props {
@@ -31,7 +32,10 @@ export default function FilterBar({
         <Chip
           compact
           selected={priorityFilter === 'all'}
-          onPress={() => onPriorityChange('all')}
+          onPress={() => {
+            appLogger.action('button.filterPriorityAll');
+            onPriorityChange('all');
+          }}
           style={chipStyle(priorityFilter === 'all')}
         >
           All
@@ -41,7 +45,10 @@ export default function FilterBar({
             key={priority}
             compact
             selected={priorityFilter === priority}
-            onPress={() => onPriorityChange(priority)}
+            onPress={() => {
+            appLogger.action('button.filterPriority', { filter: priority });
+              onPriorityChange(priority);
+            }}
             style={chipStyle(priorityFilter === priority)}
           >
             {priorityLabels[priority]}
@@ -56,7 +63,10 @@ export default function FilterBar({
             key={option.value}
             compact
             selected={statusFilter === option.value}
-            onPress={() => onStatusChange(option.value)}
+            onPress={() => {
+              appLogger.action('button.filterStatus', { filter: option.value });
+              onStatusChange(option.value);
+            }}
             style={chipStyle(statusFilter === option.value)}
           >
             {option.label}

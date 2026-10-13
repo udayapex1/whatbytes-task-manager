@@ -20,6 +20,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { priorityLabels, priorities, type Priority } from '../../core/constants/priorities';
 import { formatDate } from '../../core/utils/dateUtils';
+import { appLogger } from '../../core/utils/appLogger';
 import type { AppStackParamList } from '../navigation/AppStack';
 import { useAuthStore } from '../store/authStore';
 import { useTaskStore } from '../store/taskStore';
@@ -54,16 +55,23 @@ export default function TaskFormScreen({ navigation, route }: Props) {
   }, [existingTask]);
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    appLogger.action('taskForm.dateChanged', { selected: event.type === 'set' });
     setShowDatePicker(Platform.OS === 'ios');
     if (event.type === 'set' && selectedDate) setDueDate(selectedDate);
   };
 
   const save = async () => {
+    appLogger.action(isEditing ? 'button.saveTaskChanges' : 'button.createTask');
     const nextTitleError = title.trim() ? '' : 'Title is required.';
     setTitleError(nextTitleError);
 
     if (nextTitleError || !user) {
-      if (!user) setError('You need to be signed in to save a task.');
+      if (!user) {
+        appLogger.action('taskForm.saveBlocked', { signedIn: false });
+        setError('You need to be signed in to save a task.');
+      } else {
+        appLogger.action('taskForm.validationFailed', { title: true });
+      }
       return;
     }
 
@@ -87,8 +95,10 @@ export default function TaskFormScreen({ navigation, route }: Props) {
         });
       }
 
+      appLogger.success(isEditing ? 'taskForm.update' : 'taskForm.create');
       navigation.goBack();
-    } catch {
+    } catch (error) {
+      appLogger.failure(isEditing ? 'taskForm.update' : 'taskForm.create', error);
       setError('Could not save your task. Please try again.');
     }
   };
@@ -96,7 +106,13 @@ export default function TaskFormScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={() => navigation.goBack()} iconColor="#2D3250" />
+        <Appbar.BackAction
+          onPress={() => {
+            appLogger.action('button.backFromTaskForm');
+            navigation.goBack();
+          }}
+          iconColor="#2D3250"
+        />
         <Appbar.Content
           title={isEditing ? 'Edit task' : 'New task'}
           titleStyle={styles.appbarTitle}
@@ -145,7 +161,10 @@ export default function TaskFormScreen({ navigation, route }: Props) {
           <Text variant="labelLarge" style={styles.fieldLabel}>Due date</Text>
           <Button
             mode="outlined"
-            onPress={() => setShowDatePicker(true)}
+            onPress={() => {
+              appLogger.action('button.openDatePicker');
+              setShowDatePicker(true);
+            }}
             style={styles.dateButton}
             contentStyle={styles.dateContent}
             labelStyle={styles.dateLabel}
@@ -166,7 +185,10 @@ export default function TaskFormScreen({ navigation, route }: Props) {
           <SegmentedButtons
             value={priority}
             onValueChange={(value) => {
-              if (priorities.includes(value as Priority)) setPriority(value as Priority);
+              if (priorities.includes(value as Priority)) {
+                appLogger.action('button.changePriority', { priority: value });
+                setPriority(value as Priority);
+              }
             }}
             buttons={priorities.map((value) => ({ value, label: priorityLabels[value] }))}
             style={styles.segmented}
@@ -185,7 +207,14 @@ export default function TaskFormScreen({ navigation, route }: Props) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Snackbar visible={Boolean(error)} onDismiss={() => setError('')} duration={4500}>
+      <Snackbar
+        visible={Boolean(error)}
+        onDismiss={() => {
+          appLogger.action('button.dismissTaskFormError');
+          setError('');
+        }}
+        duration={4500}
+      >
         {error}
       </Snackbar>
     </SafeAreaView>

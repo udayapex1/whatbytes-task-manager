@@ -11,6 +11,7 @@ import { deleteTask as deleteTaskUseCase } from '../../domain/usecases/tasks/del
 import { getTasks as getTasksUseCase } from '../../domain/usecases/tasks/getTasks';
 import { toggleTaskStatus as toggleTaskStatusUseCase } from '../../domain/usecases/tasks/toggleTaskStatus';
 import { updateTask as updateTaskUseCase } from '../../domain/usecases/tasks/updateTask';
+import { appLogger } from '../../core/utils/appLogger';
 
 export type PriorityFilter = 'all' | Priority;
 export type StatusFilter = 'all' | 'completed' | 'incomplete';
@@ -76,30 +77,37 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   error: null,
 
   fetchTasks: async (userId) => {
+    appLogger.action('tasks.fetch');
     set({ isLoading: true, error: null });
 
     try {
       const tasks = await getTasksUseCase(getRepository(), userId);
       set({ tasks, isLoading: false });
+      appLogger.success('tasks.fetch', { count: tasks.length });
     } catch (error) {
       set({ isLoading: false, error: getErrorMessage(error) });
+      appLogger.failure('tasks.fetch', error);
     }
   },
 
   createTask: async (userId, task) => {
+    appLogger.action('tasks.create');
     set({ isSaving: true, error: null });
 
     try {
       const createdTask = await createTaskUseCase(getRepository(), userId, task);
       set((state) => ({ tasks: [...state.tasks, createdTask], isSaving: false }));
+      appLogger.success('tasks.create');
       return createdTask;
     } catch (error) {
       set({ isSaving: false, error: getErrorMessage(error) });
+      appLogger.failure('tasks.create', error);
       throw error;
     }
   },
 
   updateTask: async (userId, taskId, changes) => {
+    appLogger.action('tasks.update');
     set({ isSaving: true, error: null });
 
     try {
@@ -110,25 +118,31 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         ),
         isSaving: false,
       }));
+      appLogger.success('tasks.update');
     } catch (error) {
       set({ isSaving: false, error: getErrorMessage(error) });
+      appLogger.failure('tasks.update', error);
       throw error;
     }
   },
 
   deleteTask: async (userId, taskId) => {
+    appLogger.action('tasks.delete');
     const previousTasks = get().tasks;
     set({ tasks: previousTasks.filter((task) => task.id !== taskId), error: null });
 
     try {
       await deleteTaskUseCase(getRepository(), userId, taskId);
+      appLogger.success('tasks.delete');
     } catch (error) {
       set({ tasks: previousTasks, error: getErrorMessage(error) });
+      appLogger.failure('tasks.delete', error);
       throw error;
     }
   },
 
   toggleTaskStatus: async (userId, taskId) => {
+    appLogger.action('tasks.toggleStatus');
     const previousTasks = get().tasks;
     const task = previousTasks.find((item) => item.id === taskId);
 
@@ -144,8 +158,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     try {
       await toggleTaskStatusUseCase(getRepository(), userId, taskId, isCompleted);
+      appLogger.success('tasks.toggleStatus', { completed: isCompleted });
     } catch (error) {
       set({ tasks: previousTasks, error: getErrorMessage(error) });
+      appLogger.failure('tasks.toggleStatus', error);
       throw error;
     }
   },

@@ -12,6 +12,7 @@ import { Button, HelperText, Snackbar, Text, TextInput } from 'react-native-pape
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getAuthErrorMessage } from '../../core/utils/authErrors';
 import { spacing } from '../../core/theme/theme';
+import { appLogger } from '../../core/utils/appLogger';
 import type { AuthStackParamList } from '../navigation/AuthStack';
 import { useAuthStore } from '../store/authStore';
 
@@ -34,6 +35,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submit = async () => {
+    appLogger.action('button.register');
     const nextEmailError = isValidEmail(email) ? '' : 'Enter a valid email address.';
     const nextPasswordError = password.length >= 6 ? '' : 'Password must be at least 6 characters.';
     const nextConfirmError = password === confirmPassword ? '' : 'Passwords do not match.';
@@ -42,15 +44,24 @@ export default function RegisterScreen({ navigation }: Props) {
     setPasswordError(nextPasswordError);
     setConfirmError(nextConfirmError);
 
-    if (nextEmailError || nextPasswordError || nextConfirmError) return;
+    if (nextEmailError || nextPasswordError || nextConfirmError) {
+      appLogger.action('register.validationFailed', {
+        email: Boolean(nextEmailError),
+        password: Boolean(nextPasswordError),
+        confirmPassword: Boolean(nextConfirmError),
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     setError('');
 
     try {
       await register(email.trim(), password);
+      appLogger.success('register.submit');
     } catch (authError) {
       setError(getAuthErrorMessage(authError));
+      appLogger.failure('register.submit', authError);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +118,13 @@ export default function RegisterScreen({ navigation }: Props) {
                 style={styles.input}
                 outlineStyle={styles.inputOutline}
               />
-              <Pressable onPress={() => setIsPasswordVisible((visible) => !visible)} style={styles.passwordToggle}>
+              <Pressable
+                onPress={() => {
+                  appLogger.action('button.toggleRegisterPassword');
+                  setIsPasswordVisible((visible) => !visible);
+                }}
+                style={styles.passwordToggle}
+              >
                 <Text style={styles.passwordToggleText}>{isPasswordVisible ? 'Hide' : 'Show'}</Text>
               </Pressable>
             </View>
@@ -128,7 +145,13 @@ export default function RegisterScreen({ navigation }: Props) {
                 style={styles.input}
                 outlineStyle={styles.inputOutline}
               />
-              <Pressable onPress={() => setIsConfirmVisible((visible) => !visible)} style={styles.passwordToggle}>
+              <Pressable
+                onPress={() => {
+                  appLogger.action('button.toggleConfirmPassword');
+                  setIsConfirmVisible((visible) => !visible);
+                }}
+                style={styles.passwordToggle}
+              >
                 <Text style={styles.passwordToggleText}>{isConfirmVisible ? 'Hide' : 'Show'}</Text>
               </Pressable>
             </View>
@@ -148,14 +171,26 @@ export default function RegisterScreen({ navigation }: Props) {
 
           <View style={styles.switchRow}>
             <Text>Already have an account? </Text>
-            <Pressable onPress={() => navigation.navigate('Login')}>
+            <Pressable
+              onPress={() => {
+                appLogger.action('button.openLogin');
+                navigation.navigate('Login');
+              }}
+            >
               <Text style={styles.link}>Log in</Text>
             </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Snackbar visible={Boolean(error)} onDismiss={() => setError('')} duration={4500}>
+      <Snackbar
+        visible={Boolean(error)}
+        onDismiss={() => {
+          appLogger.action('button.dismissRegisterError');
+          setError('');
+        }}
+        duration={4500}
+      >
         {error}
       </Snackbar>
     </SafeAreaView>
