@@ -218,17 +218,6 @@ export default function LoginScreen({ navigation }: Props) {
                 {passwordError}
               </HelperText>
 
-              <Pressable
-                style={styles.forgotRow}
-                hitSlop={8}
-                onPress={() => {
-                  appLogger.action("button.openForgotPassword");
-                  navigation.navigate("ForgotPassword");
-                }}
-              >
-                <Text style={styles.forgot}>Forgot password?</Text>
-              </Pressable>
-
               <Button
                 mode="contained"
                 onPress={() => void submit()}
@@ -300,7 +289,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  scrim: { ...StyleSheet.absoluteFillObject },
+  scrim: { ...StyleSheet.absoluteFill },
   brandRow: { flexDirection: "row", alignItems: "center" },
   logoChip: {
     width: 44,
@@ -352,8 +341,6 @@ const styles = StyleSheet.create({
   },
   input: { height: 52, backgroundColor: palette.mist },
   inputOutline: { borderRadius: FIELD_RADIUS, borderWidth: 1.5 },
-  forgotRow: { alignSelf: "flex-end", marginTop: -spacing.xs },
-  forgot: { color: palette.orange, fontSize: 13, fontWeight: "700" },
   button: {
     marginTop: spacing.md,
     borderRadius: 16,

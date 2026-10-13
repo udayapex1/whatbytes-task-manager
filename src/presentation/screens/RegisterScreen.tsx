@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  scrim: { ...StyleSheet.absoluteFillObject },
+  scrim: { ...StyleSheet.absoluteFill },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
   logoChip: {
     width: 44,
